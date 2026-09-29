@@ -190,16 +190,36 @@ def checkout_action(request):
 def inventory_view(request):
     """Tira / Stock counts and low-inventory warnings."""
     query = request.GET.get('q', '').strip()
-    products = Product.objects.filter(is_active=True)
+    selected_category = request.GET.get('category', '').strip()
+    filter_status = request.GET.get('status', '').strip()
 
+    all_active = Product.objects.filter(is_active=True)
+    categories = sorted(list(set(all_active.values_list('category', flat=True))))
+
+    products = all_active
     if query:
         products = products.filter(
-            Q(name__icontains=query) | Q(category__icontains=query) | Q(brand__icontains=query)
+            Q(name__icontains=query) | Q(category__icontains=query) | Q(brand__icontains=query) | Q(sku__icontains=query)
         )
+    if selected_category:
+        products = products.filter(category=selected_category)
+    if filter_status == 'low':
+        products = [p for p in products if p.stock_quantity <= p.reorder_point]
+    else:
+        products = list(products.order_by('name'))
+
+    low_stock_count = sum(1 for p in all_active if p.stock_quantity <= p.reorder_point)
+    out_of_stock_count = sum(1 for p in all_active if p.stock_quantity <= 0)
 
     context = {
-        'products': products.order_by('name'),
+        'products': products,
         'query': query,
+        'categories': categories,
+        'selected_category': selected_category,
+        'filter_status': filter_status,
+        'low_stock_count': low_stock_count,
+        'out_of_stock_count': out_of_stock_count,
+        'total_count': all_active.count(),
     }
     return render(request, 'inventory.html', context)
 

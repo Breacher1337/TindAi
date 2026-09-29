@@ -3,62 +3,125 @@
 {% block title %}Tira (Imbentaryo) - TindAI{% endblock %}
 
 {% block content %}
-<div class="space-y-4">
+<div id="inventory-container" class="space-y-4">
 
-  <!-- Header & OCR Action -->
+  <!-- Header -->
   <div class="flex items-center justify-between">
     <div>
       <h2 class="font-bold text-lg text-slate-800">Tira at Imbentaryo</h2>
-      <p class="text-xs text-slate-500">Kabuuang {{ products|length }} produkto sa tindahan</p>
+      <p class="text-xs text-slate-500">Kabuuang {{ total_count }} produkto sa tindahan</p>
     </div>
-    <label class="cursor-pointer bg-slate-800 text-white font-bold px-3 py-2 rounded-xl text-xs flex items-center active:scale-95 shadow-sm">
-      <span>Scan Resibo</span>
-      <input type="file" accept="image/*" capture="environment" class="hidden" onchange="alert('Paparating na ang Gemini OCR Receipt Extraction sa Phase 2!')">
-    </label>
+    <a href="/restock/" class="bg-amber-500 hover:bg-amber-600 text-slate-900 font-extrabold px-3 py-2 rounded-xl text-xs flex items-center gap-1 active:scale-95 shadow-sm">
+      <i data-lucide="shopping-cart" class="w-3.5 h-3.5"></i>
+      <span>Bili (Restock)</span>
+    </a>
   </div>
 
-  <!-- Search & Filter Form -->
+  <!-- Quick Health Metrics -->
+  <div class="grid grid-cols-2 gap-2">
+    <a href="/inventory/?status={% if filter_status == 'low' %}{% else %}low{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}"
+       class="p-3 rounded-xl border transition-all text-left {% if filter_status == 'low' %}bg-rose-50 border-rose-400 ring-2 ring-rose-400{% else %}bg-white border-slate-200 hover:border-rose-300{% endif %}">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-bold text-slate-600">Kailangan Nang Bilhin</span>
+        <span class="w-2 h-2 rounded-full bg-rose-500"></span>
+      </div>
+      <div class="text-xl font-black text-rose-600 mt-1">{{ low_stock_count }} <span class="text-xs font-medium text-slate-400">SKUs</span></div>
+      <div class="text-[10px] text-slate-400 mt-0.5">{% if filter_status == 'low' %}I-click para ipakita lahat{% else %}I-click para i-filter{% endif %}</div>
+    </a>
+
+    <div class="bg-white p-3 rounded-xl border border-slate-200 text-left">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-bold text-slate-600">May Sapat na Stock</span>
+        <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+      </div>
+      <div class="text-xl font-black text-emerald-600 mt-1">{{ total_count|add:"-low_stock_count" }} <span class="text-xs font-medium text-slate-400">SKUs</span></div>
+      <div class="text-[10px] text-slate-400 mt-0.5">Safe sa reorder threshold</div>
+    </div>
+  </div>
+
+  <!-- Search Input with HTMX live search -->
   <form method="GET" action="/inventory/" class="flex gap-2">
-    <input type="text" name="q" value="{{ query }}" placeholder="Maghanap ng produkto..."
-           class="flex-1 border border-slate-300 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600">
-    <button type="submit" class="bg-emerald-700 text-white font-bold px-4 py-2 rounded-xl text-xs active:scale-95">
-      Hanapin
-    </button>
+    <div class="relative flex-1">
+      <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-3"></i>
+      <input type="text" name="q" value="{{ query }}" placeholder="Maghanap ayon sa pangalan, SKU, brand..."
+             class="w-full border border-slate-300 rounded-xl pl-9 pr-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600"
+             hx-get="/inventory/"
+             hx-trigger="keyup changed delay:350ms, search"
+             hx-target="#inventory-container"
+             hx-select="#inventory-container"
+             hx-include="[name='category'], [name='status']">
+    </div>
+    {% if query or selected_category or filter_status %}
+    <a href="/inventory/" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold px-3 py-2 rounded-xl text-xs flex items-center active:scale-95">
+      Linisin
+    </a>
+    {% endif %}
+    <input type="hidden" name="category" value="{{ selected_category }}">
+    <input type="hidden" name="status" value="{{ filter_status }}">
   </form>
 
+  <!-- Category Pills (Horizontal Scroll) -->
+  <div class="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar text-xs">
+    <a href="/inventory/{% if filter_status %}?status={{ filter_status }}{% endif %}"
+       class="whitespace-nowrap px-3 py-1.5 rounded-full font-bold transition-all {% if not selected_category %}bg-slate-900 text-white shadow-sm{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+      Lahat ({{ total_count }})
+    </a>
+    {% for cat in categories %}
+    <a href="/inventory/?category={{ cat|urlencode }}{% if filter_status %}&status={{ filter_status }}{% endif %}"
+       class="whitespace-nowrap px-3 py-1.5 rounded-full font-bold transition-all {% if selected_category == cat %}bg-slate-900 text-white shadow-sm{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+      {{ cat }}
+    </a>
+    {% endfor %}
+  </div>
+
   <!-- Product List -->
-  <div class="space-y-2">
+  <div id="product-list" class="space-y-2">
     {% for product in products %}
-    <div class="bg-white border border-slate-200 rounded-xl p-3 shadow-sm flex items-center justify-between">
+    <div class="bg-white border rounded-xl p-3 shadow-sm flex items-center justify-between transition-all {% if product.stock_quantity <= 0 %}border-rose-400 bg-rose-50/40{% elif product.stock_quantity <= product.reorder_point %}border-amber-300 bg-amber-50/30{% else %}border-slate-200{% endif %}">
       <div class="flex-1 pr-2">
-        <div class="flex items-center space-x-2">
+        <div class="flex items-center gap-1.5 flex-wrap">
           <span class="font-bold text-sm text-slate-900 leading-snug">{{ product.name }}</span>
-          {% if product.stock_quantity <= product.reorder_point %}
-            <span class="bg-rose-100 text-rose-800 font-extrabold text-[10px] px-2 py-0.5 rounded-full">
+          {% if product.stock_quantity <= 0 %}
+            <span class="bg-rose-600 text-white font-black text-[9px] px-2 py-0.5 rounded-full tracking-wider uppercase">
+              Ubos na
+            </span>
+          {% elif product.stock_quantity <= product.reorder_point %}
+            <span class="bg-amber-100 text-amber-900 font-extrabold text-[10px] px-2 py-0.5 rounded-full">
               Konti na lang
             </span>
           {% endif %}
         </div>
-        <div class="text-xs text-slate-500 mt-0.5">
-          <span>Kategorya: {{ product.category }}</span> | 
-          <span class="text-emerald-700 font-bold">Benta: ₱{{ product.retail_price }}</span> |
+        <div class="text-xs text-slate-500 mt-1 flex items-center gap-2 flex-wrap">
+          <span class="font-semibold text-slate-600">{{ product.category }}</span>
+          <span>•</span>
+          <span class="text-emerald-700 font-bold">Benta: ₱{{ product.retail_price }}</span>
+          <span>•</span>
           <span class="text-slate-400">Puhunan: ₱{{ product.wholesale_cost }}</span>
         </div>
       </div>
       
-      <div class="text-right">
-        <div class="text-sm font-black {% if product.stock_quantity <= product.reorder_point %}text-rose-600{% else %}text-slate-800{% endif %}">
-          {{ product.stock_quantity }} {{ product.tingi_unit }}
+      <div class="text-right shrink-0">
+        <div class="text-base font-black {% if product.stock_quantity <= 0 %}text-rose-600{% elif product.stock_quantity <= product.reorder_point %}text-amber-600{% else %}text-slate-800{% endif %}">
+          {{ product.stock_quantity }} <span class="text-xs font-normal text-slate-500">{{ product.tingi_unit }}</span>
         </div>
-        <div class="text-[10px] text-slate-400">ROP: {{ product.reorder_point }}</div>
+        <div class="text-[10px] text-slate-400 font-medium">Reorder: {{ product.reorder_point }}</div>
       </div>
     </div>
     {% empty %}
-    <div class="p-6 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-xl text-sm">
-      Walang nahanap na produkto.
+    <div class="p-8 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-xl">
+      <i data-lucide="package-search" class="w-8 h-8 mx-auto text-slate-300 mb-2"></i>
+      <p class="text-sm font-semibold text-slate-600">Walang nahanap na produkto.</p>
+      <p class="text-xs text-slate-400 mt-1">Subukang baguhin ang salitang hinahanap o tanggalin ang filter.</p>
+      <a href="/inventory/" class="inline-block mt-3 bg-slate-800 text-white text-xs font-bold px-3 py-1.5 rounded-lg">Ipakita Lahat</a>
     </div>
     {% endfor %}
   </div>
 
 </div>
+
+<script>
+  if (window.lucide) {
+    lucide.createIcons();
+  }
+</script>
 {% endblock %}

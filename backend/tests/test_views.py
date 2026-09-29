@@ -62,6 +62,23 @@ def test_inventory_view(client, sample_product):
     assert resp.status_code == 200
     assert b"Lucky Me Pancit Canton" in resp.content
 
+    # Filter by category
+    cat_resp = client.get(reverse('inventory') + '?category=Instant+Noodles')
+    assert cat_resp.status_code == 200
+    assert b"Lucky Me Pancit Canton" in cat_resp.content
+
+    # Filter low stock (current stock 50, reorder 10 -> not low)
+    low_resp = client.get(reverse('inventory') + '?status=low')
+    assert low_resp.status_code == 200
+    assert b"Walang nahanap na produkto" in low_resp.content
+
+    # Now make it low stock
+    sample_product.stock_quantity = 5
+    sample_product.save()
+    low_resp2 = client.get(reverse('inventory') + '?status=low')
+    assert low_resp2.status_code == 200
+    assert b"Konti na lang" in low_resp2.content
+
 
 @pytest.mark.django_db
 def test_utang_view_and_payment(client, sample_customer):
