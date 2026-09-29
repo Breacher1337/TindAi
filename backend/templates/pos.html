@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}Benta (POS) - TindAI{% endblock %}
+
+{% block content %}
+<div class="space-y-4">
+
+  <!-- Camera Snapshot Action Bar -->
+  <div class="bg-gradient-to-r from-emerald-800 to-teal-800 rounded-2xl p-4 text-white shadow-md">
+    <div class="flex items-center justify-between">
+      <div>
+        <h2 class="font-bold text-base">Camera Counter Scan</h2>
+        <p class="text-xs text-emerald-200">Kunan ng litrato ang mga paninda sa lamesa</p>
+      </div>
+      <label class="cursor-pointer bg-white text-emerald-800 font-extrabold px-4 py-2.5 rounded-xl shadow-md text-xs uppercase tracking-wide flex items-center active:scale-95 transition">
+        <span>Kumuha</span>
+        <input type="file" accept="image/*" capture="environment" class="hidden" onchange="alert('Paparating na ang Gemini Flash model perception sa Phase 2!')">
+      </label>
+    </div>
+  </div>
+
+  <!-- Tingi Quick-Add Row -->
+  <div>
+    <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Mabilisang Tingi:</h3>
+    <div class="grid grid-cols-3 gap-2">
+      {% for product in tingi_products %}
+      <button hx-post="/cart/add/{{ product.id }}/" hx-target="#cart-container"
+              class="bg-white border border-slate-200 hover:border-emerald-600 rounded-xl p-2.5 text-left shadow-sm active:scale-95 transition flex flex-col justify-between">
+        <span class="text-xs font-bold text-slate-800 truncate w-full">{{ product.name }}</span>
+        <span class="text-xs font-extrabold text-emerald-700 mt-1">₱{{ product.retail_price }}</span>
+      </button>
+      {% empty %}
+      <div class="col-span-3 text-xs text-slate-400 py-2">Maglagay ng produkto sa database.</div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Manual Item Search Dropdown -->
+  <div>
+    <form hx-post="/cart/add-by-id/" hx-target="#cart-container" class="flex gap-2">
+      <select name="product_id" class="flex-1 border border-slate-300 rounded-xl px-3 py-2 text-sm bg-white font-medium">
+        <option value="">Pumili mula sa buong listahan...</option>
+        {% for p in all_products %}
+          <option value="{{ p.id }}">{{ p.name }} - ₱{{ p.retail_price }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit" class="bg-slate-800 text-white font-bold px-4 py-2 rounded-xl text-sm active:scale-95">
+        Idagdag
+      </button>
+    </form>
+  </div>
+
+  <!-- Cart Section -->
+  <div>
+    <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Kasalukuyang Cart:</h3>
+    {% include "partials/cart.html" %}
+  </div>
+
+</div>
+
+<script>
+  function toggleCustomerSelect(show) {
+    const el = document.getElementById('customer-select-block');
+    if (el) {
+      if (show) {
+        el.classList.remove('hidden');
+      } else {
+        el.classList.add('hidden');
+      }
+    }
+  }
+</script>
+{% endblock %}

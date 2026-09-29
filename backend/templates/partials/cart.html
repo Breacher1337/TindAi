@@ -1,0 +1,79 @@
+<div id="cart-container" class="space-y-3">
+  {% if cart %}
+    <div class="border border-slate-200 rounded-xl p-3 bg-slate-50 space-y-2">
+      <div class="flex justify-between items-center pb-2 border-b border-slate-200 text-xs text-slate-500 font-semibold uppercase">
+        <span>Aytem</span>
+        <span>Dami / Halaga</span>
+      </div>
+      
+      {% for item in cart %}
+      <div class="flex items-center justify-between py-1.5 text-sm">
+        <div class="flex-1 pr-2">
+          <div class="font-bold text-slate-800 leading-tight">{{ item.name }}</div>
+          <div class="text-xs text-slate-500">₱{{ item.price }} / {{ item.unit }}</div>
+        </div>
+        <div class="flex items-center space-x-2">
+          <button hx-post="/cart/remove/{{ item.id }}/" hx-target="#cart-container"
+                  class="w-8 h-8 rounded-lg bg-slate-200 text-slate-700 font-bold flex items-center justify-center active:scale-95">
+            -
+          </button>
+          <span class="w-6 text-center font-bold text-slate-900">{{ item.qty }}</span>
+          <button hx-post="/cart/add/{{ item.id }}/" hx-target="#cart-container"
+                  class="w-8 h-8 rounded-lg bg-emerald-600 text-white font-bold flex items-center justify-center active:scale-95">
+            +
+          </button>
+          <span class="w-16 text-right font-bold text-slate-900">₱{{ item.subtotal }}</span>
+        </div>
+      </div>
+      {% endfor %}
+
+      <div class="pt-2 border-t border-slate-200 flex justify-between items-center text-base font-extrabold text-slate-900">
+        <span>Kabuuan:</span>
+        <span class="text-emerald-700 text-lg">₱{{ cart_total }}</span>
+      </div>
+    </div>
+
+    <!-- Settlement Options -->
+    <form method="POST" action="/checkout/" class="space-y-3 pt-2">
+      {% csrf_token %}
+      <div>
+        <label class="block text-xs font-bold text-slate-600 mb-1">Paraan ng Bayad:</label>
+        <div class="grid grid-cols-2 gap-2">
+          <label class="border border-emerald-600 bg-emerald-50 text-emerald-800 rounded-xl p-3 flex items-center justify-center font-bold text-sm cursor-pointer has-[:checked]:ring-2 has-[:checked]:ring-emerald-600">
+            <input type="radio" name="payment_method" value="CASH" checked class="mr-2 accent-emerald-600" onchange="toggleCustomerSelect(false)">
+            Bayad Cash
+          </label>
+          <label class="border border-amber-600 bg-amber-50 text-amber-800 rounded-xl p-3 flex items-center justify-center font-bold text-sm cursor-pointer has-[:checked]:ring-2 has-[:checked]:ring-amber-600">
+            <input type="radio" name="payment_method" value="UTANG" class="mr-2 accent-amber-600" onchange="toggleCustomerSelect(true)">
+            Ilista (Utang)
+          </label>
+        </div>
+      </div>
+
+      <!-- Suki Selection (Hidden unless Utang selected) -->
+      <div id="customer-select-block" class="hidden space-y-1">
+        <label for="customer_id" class="block text-xs font-bold text-slate-700">Pangalan ng Suki:</label>
+        <select name="customer_id" id="customer_id" class="w-full border border-slate-300 rounded-xl p-2.5 text-sm bg-white font-medium">
+          <option value="">Pumili ng may utang...</option>
+          {% for cust in customers %}
+            <option value="{{ cust.id }}">{{ cust.name }} {% if cust.nickname %}({{ cust.nickname }}){% endif %} - Utang: ₱{{ cust.debt_balance }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <button type="submit" class="w-full py-4 bg-emerald-700 text-white font-extrabold rounded-xl shadow-md text-base uppercase tracking-wider active:scale-95 transition">
+        Kumpirmahin ang Benta (₱{{ cart_total }})
+      </button>
+
+      <button type="button" hx-post="/cart/clear/" hx-target="#cart-container" class="w-full text-center text-xs text-rose-600 font-semibold py-1">
+        Burahin ang Cart
+      </button>
+    </form>
+
+  {% else %}
+    <div class="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center text-slate-400">
+      <p class="text-sm font-medium">Walang laman ang cart.</p>
+      <p class="text-xs text-slate-400 mt-1">Pumindot ng tingi o kumuha ng litrato ng counter.</p>
+    </div>
+  {% endif %}
+</div>

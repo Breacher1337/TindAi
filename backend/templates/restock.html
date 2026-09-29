@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}Bili (Restock AI) - TindAI{% endblock %}
+
+{% block content %}
+<div class="space-y-4">
+
+  <!-- Header & Budget Formulation -->
+  <div class="bg-gradient-to-r from-teal-800 to-emerald-900 text-white p-4 rounded-2xl shadow-md">
+    <h2 class="font-bold text-base">Restock Shopping Optimizer</h2>
+    <p class="text-xs text-teal-200 mt-0.5">Kalkulahin ang pinaka-kikitaing grocery list batay sa revolving budget.</p>
+
+    <form method="POST" action="/restock/calculate/" class="mt-3 space-y-2">
+      {% csrf_token %}
+      <div class="flex items-center space-x-2">
+        <label for="budget_input" class="text-xs font-bold text-teal-100 whitespace-nowrap">Budget (₱):</label>
+        <input type="number" step="100" min="500" max="50000" name="budget" id="budget_input" value="{{ budget|default:5000 }}"
+               class="flex-1 border-0 rounded-xl px-3 py-2 text-base font-extrabold text-slate-900 bg-white shadow-inner focus:outline-none">
+        <button type="submit" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-black px-4 py-2 rounded-xl text-xs uppercase tracking-wide shadow-md active:scale-95 transition">
+          I-Kalkula
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Procurement Results & Aisle Checklist -->
+  {% if restock_items %}
+  <div class="space-y-3">
+    <div class="flex justify-between items-center">
+      <div>
+        <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider">Mungkahing Listahan sa Puregold</h3>
+        <p class="text-xs text-slate-500">Tinatayang Gastos: <strong class="text-emerald-800 font-extrabold">₱{{ total_spend }}</strong></p>
+      </div>
+      <button onclick="window.print()" class="bg-slate-800 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-sm active:scale-95">
+        I-print Listahan
+      </button>
+    </div>
+
+    <div class="bg-white border border-slate-200 rounded-xl p-3 shadow-sm divide-y divide-slate-100">
+      {% for item in restock_items %}
+      <div class="py-2.5 flex items-start justify-between">
+        <div class="flex items-start space-x-2.5">
+          <input type="checkbox" class="mt-1 w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 accent-emerald-600">
+          <div>
+            <div class="font-bold text-sm text-slate-900 leading-tight">{{ item.name }}</div>
+            <div class="text-xs text-slate-500 mt-0.5">
+              <span>Bibilhin: <strong>{{ item.packs }} {{ item.pack_unit }}</strong></span> |
+              <span>Puhunan: ₱{{ item.unit_cost }}/pack</span>
+            </div>
+            <div class="text-[11px] text-emerald-700 font-medium">Inaasahang Tubo: +₱{{ item.expected_profit }}</div>
+          </div>
+        </div>
+        <div class="text-right font-black text-sm text-slate-800">
+          ₱{{ item.line_total }}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% else %}
+  <div class="p-6 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-xl text-sm">
+    Maglagay ng halaga ng budget sa itaas at pindutin ang "I-Kalkula".
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

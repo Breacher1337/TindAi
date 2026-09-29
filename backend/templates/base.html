@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>{% block title %}TindAI - Sari-Sari POS{% endblock %}</title>
+  <!-- Tailwind CSS & HTMX via CDN: Zero Build Step Required -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/htmx.org@2.0.3"></script>
+  <style>
+    /* Mobile-first touch ergonomics */
+    body { -webkit-tap-highlight-color: transparent; }
+    .touch-target { min-height: 48px; min-width: 48px; }
+  </style>
+</head>
+<body class="bg-slate-200 text-slate-900 font-sans antialiased" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+  
+  <!-- Centered Mobile Viewport Container (375px - 430px) -->
+  <div class="max-w-md mx-auto min-h-screen bg-white shadow-2xl flex flex-col justify-between relative pb-20">
+    
+    <!-- Top Header -->
+    <header class="bg-emerald-700 text-white px-4 py-3 flex items-center justify-between sticky top-0 z-30 shadow-sm">
+      <div>
+        <h1 class="font-bold text-lg tracking-tight">TindAI</h1>
+        <p class="text-xs text-emerald-100 font-medium">Sari-Sari Store OS</p>
+      </div>
+      <div class="text-right">
+        <a href="/admin/" class="text-xs bg-emerald-800 hover:bg-emerald-900 text-white px-2.5 py-1 rounded font-semibold transition">
+          Admin
+        </a>
+      </div>
+    </header>
+
+    <!-- Main Content Body -->
+    <main class="flex-1 p-4 overflow-y-auto">
+      {% block content %}{% endblock %}
+    </main>
+
+    <!-- Bottom Thumb Navigation Bar -->
+    <nav class="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white border-t border-slate-200 grid grid-cols-4 z-40 shadow-lg">
+      <a href="/" class="py-2.5 flex flex-col items-center justify-center touch-target {% if request.path == '/' %}text-emerald-700 font-bold bg-emerald-50{% else %}text-slate-500 hover:text-slate-800{% endif %}">
+        <span class="text-xs uppercase tracking-wider">Benta</span>
+        <span class="text-[10px] text-slate-400">POS</span>
+      </a>
+      <a href="/inventory/" class="py-2.5 flex flex-col items-center justify-center touch-target {% if request.path == '/inventory/' %}text-emerald-700 font-bold bg-emerald-50{% else %}text-slate-500 hover:text-slate-800{% endif %}">
+        <span class="text-xs uppercase tracking-wider">Tira</span>
+        <span class="text-[10px] text-slate-400">Stocks</span>
+      </a>
+      <a href="/utang/" class="py-2.5 flex flex-col items-center justify-center touch-target {% if request.path == '/utang/' %}text-emerald-700 font-bold bg-emerald-50{% else %}text-slate-500 hover:text-slate-800{% endif %}">
+        <span class="text-xs uppercase tracking-wider">Utang</span>
+        <span class="text-[10px] text-slate-400">Ledger</span>
+      </a>
+      <a href="/restock/" class="py-2.5 flex flex-col items-center justify-center touch-target {% if request.path == '/restock/' %}text-emerald-700 font-bold bg-emerald-50{% else %}text-slate-500 hover:text-slate-800{% endif %}">
+        <span class="text-xs uppercase tracking-wider">Bili</span>
+        <span class="text-[10px] text-slate-400">Restock</span>
+      </a>
+    </nav>
+
+  </div>
+
+  {% block extra_scripts %}{% endblock %}
+</body>
+</html>
