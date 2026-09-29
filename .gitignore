@@ -60,4 +60,6 @@ Desktop.ini
 
 # Local design & workflow specifications (hidden from Git)
 DESIGN.md
+references/
+local_docs/
 
