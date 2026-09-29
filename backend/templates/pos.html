@@ -6,31 +6,42 @@
 <div class="space-y-4">
 
   <!-- Camera Snapshot Action Bar -->
-  <div class="bg-gradient-to-r from-emerald-800 to-teal-800 rounded-2xl p-4 text-white shadow-md">
+  <div class="bg-gradient-to-r from-emerald-800 to-teal-800 rounded-2xl p-3.5 text-white shadow-md">
     <div class="flex items-center justify-between">
       <div>
-        <h2 class="font-bold text-base">Camera Counter Scan</h2>
+        <h2 class="font-black text-base tracking-tight">Camera Counter Scan</h2>
         <p class="text-xs text-emerald-200">Kunan ng litrato ang mga paninda sa lamesa</p>
       </div>
-      <label class="cursor-pointer bg-white text-emerald-800 font-extrabold px-4 py-2.5 rounded-xl shadow-md text-xs uppercase tracking-wide flex items-center active:scale-95 transition">
+      <label class="cursor-pointer bg-white hover:bg-emerald-50 text-emerald-900 font-black px-3.5 py-2.5 rounded-xl shadow-md text-xs uppercase tracking-wider flex items-center gap-1.5 active:scale-95 transition">
+        <i data-lucide="camera" class="w-4 h-4 text-emerald-700"></i>
         <span>Kumuha</span>
-        <input type="file" accept="image/*" capture="environment" class="hidden" onchange="alert('Paparating na ang Gemini Flash model perception sa Phase 2!')">
+        <input type="file" accept="image/*" capture="environment" class="hidden" onchange="alert('Paparating na ang Gemini Flash multimodal counter scan sa Phase 2!')">
       </label>
     </div>
   </div>
 
-  <!-- Tingi Quick-Add Row -->
+  <!-- Tingi Quick-Add Grid (3x3 on mobile) -->
   <div>
-    <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Mabilisang Tingi:</h3>
+    <div class="flex items-center justify-between mb-2">
+      <h3 class="text-xs font-black text-slate-500 uppercase tracking-wider">Mabilisang Tingi (1-Tap):</h3>
+      <span class="text-[11px] text-slate-400">Pindutin para idagdag</span>
+    </div>
     <div class="grid grid-cols-3 gap-2">
       {% for product in tingi_products %}
       <button hx-post="/cart/add/{{ product.id }}/" hx-target="#cart-container"
-              class="bg-white border border-slate-200 hover:border-emerald-600 rounded-xl p-2.5 text-left shadow-sm active:scale-95 transition flex flex-col justify-between">
-        <span class="text-xs font-bold text-slate-800 truncate w-full">{{ product.name }}</span>
-        <span class="text-xs font-extrabold text-emerald-700 mt-1">₱{{ product.retail_price }}</span>
+              class="bg-white border rounded-xl p-2.5 text-left shadow-sm active:scale-95 transition flex flex-col justify-between min-h-[68px] touch-target hover:border-emerald-500 {% if product.stock_quantity <= 0 %}opacity-40 border-rose-300 pointer-events-none{% elif product.stock_quantity <= product.reorder_point %}border-amber-300{% else %}border-slate-200{% endif %}">
+        <span class="text-xs font-bold text-slate-800 line-clamp-2 leading-tight">{{ product.name }}</span>
+        <div class="flex items-center justify-between mt-1 pt-1 border-t border-slate-100">
+          <span class="text-xs font-black text-emerald-700">₱{{ product.retail_price }}</span>
+          <span class="text-[9px] font-semibold {% if product.stock_quantity <= product.reorder_point %}text-amber-600{% else %}text-slate-400{% endif %}">
+            {{ product.stock_quantity }}{{ product.tingi_unit|slice:":1" }}
+          </span>
+        </div>
       </button>
       {% empty %}
-      <div class="col-span-3 text-xs text-slate-400 py-2">Maglagay ng produkto sa database.</div>
+      <div class="col-span-3 text-xs text-slate-400 py-3 text-center bg-white border border-dashed rounded-xl">
+        Maglagay ng produkto sa database gamit ang seed catalog.
+      </div>
       {% endfor %}
     </div>
   </div>
@@ -38,13 +49,17 @@
   <!-- Manual Item Search Dropdown -->
   <div>
     <form hx-post="/cart/add-by-id/" hx-target="#cart-container" class="flex gap-2">
-      <select name="product_id" class="flex-1 border border-slate-300 rounded-xl px-3 py-2 text-sm bg-white font-medium">
-        <option value="">Pumili mula sa buong listahan...</option>
-        {% for p in all_products %}
-          <option value="{{ p.id }}">{{ p.name }} - ₱{{ p.retail_price }}</option>
-        {% endfor %}
-      </select>
-      <button type="submit" class="bg-slate-800 text-white font-bold px-4 py-2 rounded-xl text-sm active:scale-95">
+      <div class="relative flex-1">
+        <select name="product_id" required
+                class="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm bg-white font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-600 appearance-none">
+          <option value="">Pumili mula sa buong listahan (50 SKUs)...</option>
+          {% for p in all_products %}
+            <option value="{{ p.id }}">{{ p.name }} - ₱{{ p.retail_price }} (May {{ p.stock_quantity }} {{ p.tingi_unit }})</option>
+          {% endfor %}
+        </select>
+        <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 absolute right-3 top-3.5 pointer-events-none"></i>
+      </div>
+      <button type="submit" class="bg-slate-900 hover:bg-slate-800 text-white font-extrabold px-4 py-2.5 rounded-xl text-xs uppercase tracking-wide active:scale-95 shadow-sm">
         Idagdag
       </button>
     </form>
@@ -52,7 +67,9 @@
 
   <!-- Cart Section -->
   <div>
-    <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Kasalukuyang Cart:</h3>
+    <div class="flex items-center justify-between mb-2">
+      <h3 class="text-xs font-black text-slate-500 uppercase tracking-wider">Kasalukuyang Cart</h3>
+    </div>
     {% include "partials/cart.html" %}
   </div>
 
@@ -61,13 +78,73 @@
 <script>
   function toggleCustomerSelect(show) {
     const el = document.getElementById('customer-select-block');
-    if (el) {
-      if (show) {
-        el.classList.remove('hidden');
-      } else {
-        el.classList.add('hidden');
+    const cashBlock = document.getElementById('cash-tender-block');
+    const submitBtn = document.getElementById('checkout-submit-btn');
+
+    if (show) {
+      if (el) el.classList.remove('hidden');
+      if (cashBlock) cashBlock.classList.add('hidden');
+      if (submitBtn) {
+        submitBtn.classList.remove('bg-emerald-700', 'hover:bg-emerald-800');
+        submitBtn.classList.add('bg-amber-600', 'hover:bg-amber-700');
+        submitBtn.innerText = 'Ilista sa Utang';
+      }
+    } else {
+      if (el) el.classList.add('hidden');
+      if (cashBlock) cashBlock.classList.remove('hidden');
+      if (submitBtn) {
+        submitBtn.classList.remove('bg-amber-600', 'hover:bg-amber-700');
+        submitBtn.classList.add('bg-emerald-700', 'hover:bg-emerald-800');
+        updateCheckoutButtonText();
       }
     }
+  }
+
+  function calculateSukli() {
+    const totalEl = document.getElementById('cart-total-value');
+    const tenderEl = document.getElementById('cash-tender-input');
+    const sukliDisplay = document.getElementById('sukli-display');
+    const sukliContainer = document.getElementById('sukli-container');
+
+    if (!totalEl || !tenderEl || !sukliDisplay) return;
+
+    const total = parseFloat(totalEl.value) || 0;
+    const tender = parseFloat(tenderEl.value) || 0;
+
+    if (tender > 0) {
+      sukliContainer.classList.remove('hidden');
+      const diff = tender - total;
+      if (diff >= 0) {
+        sukliDisplay.innerHTML = `<span class="text-emerald-700 font-black">Sukli: ₱${diff.toFixed(2)}</span>`;
+      } else {
+        sukliDisplay.innerHTML = `<span class="text-rose-600 font-bold">Kulang pa ng ₱${Math.abs(diff).toFixed(2)}</span>`;
+      }
+    } else {
+      sukliContainer.classList.add('hidden');
+    }
+  }
+
+  function setTender(val) {
+    const input = document.getElementById('cash-tender-input');
+    if (val === 'exact') {
+      const totalEl = document.getElementById('cart-total-value');
+      if (totalEl) input.value = totalEl.value;
+    } else {
+      input.value = val;
+    }
+    calculateSukli();
+  }
+
+  function updateCheckoutButtonText() {
+    const totalEl = document.getElementById('cart-total-value');
+    const submitBtn = document.getElementById('checkout-submit-btn');
+    if (totalEl && submitBtn) {
+      submitBtn.innerText = `Kumpirmahin ang Benta (₱${totalEl.value})`;
+    }
+  }
+
+  if (window.lucide) {
+    lucide.createIcons();
   }
 </script>
 {% endblock %}

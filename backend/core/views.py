@@ -37,8 +37,8 @@ def pos_view(request):
     cart = _get_cart(request)
     cart_items, cart_total = _calculate_cart_totals(cart)
     
-    # 6 popular tingi items for quick row
-    tingi_products = Product.objects.filter(is_active=True)[:6]
+    # 9 popular tingi items for 3x3 quick tap grid
+    tingi_products = Product.objects.filter(is_active=True).order_by('category', 'name')[:9]
     all_products = Product.objects.filter(is_active=True).order_by('name')
     customers = Customer.objects.filter(is_active=True).order_by('name')
 

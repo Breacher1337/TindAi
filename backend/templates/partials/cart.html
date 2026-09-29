@@ -1,79 +1,142 @@
 <div id="cart-container" class="space-y-3">
   {% if cart %}
-    <div class="border border-slate-200 rounded-xl p-3 bg-slate-50 space-y-2">
-      <div class="flex justify-between items-center pb-2 border-b border-slate-200 text-xs text-slate-500 font-semibold uppercase">
-        <span>Aytem</span>
-        <span>Dami / Halaga</span>
+    <input type="hidden" id="cart-total-value" value="{{ cart_total }}">
+
+    <!-- Cart Items Table Card -->
+    <div class="border border-slate-200 rounded-2xl p-3.5 bg-slate-50 space-y-2 shadow-sm">
+      <div class="flex justify-between items-center pb-2 border-b border-slate-200 text-xs text-slate-500 font-bold uppercase tracking-wider">
+        <span>Paninda</span>
+        <span>Dami at Halaga</span>
       </div>
       
       {% for item in cart %}
-      <div class="flex items-center justify-between py-1.5 text-sm">
+      <div class="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
         <div class="flex-1 pr-2">
-          <div class="font-bold text-slate-800 leading-tight">{{ item.name }}</div>
-          <div class="text-xs text-slate-500">₱{{ item.price }} / {{ item.unit }}</div>
+          <div class="font-extrabold text-sm text-slate-900 leading-snug">{{ item.name }}</div>
+          <div class="text-xs text-slate-500 mt-0.5">₱{{ item.price }} / {{ item.unit }}</div>
         </div>
-        <div class="flex items-center space-x-2">
+
+        <div class="flex items-center gap-1.5 shrink-0">
+          <!-- Stepper Minus (44px touch target) -->
           <button hx-post="/cart/remove/{{ item.id }}/" hx-target="#cart-container"
-                  class="w-8 h-8 rounded-lg bg-slate-200 text-slate-700 font-bold flex items-center justify-center active:scale-95">
+                  class="w-10 h-10 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 font-black text-lg flex items-center justify-center active:scale-90 transition touch-target">
             -
           </button>
-          <span class="w-6 text-center font-bold text-slate-900">{{ item.qty }}</span>
+          
+          <span class="w-7 text-center font-black text-sm text-slate-900">{{ item.qty }}</span>
+          
+          <!-- Stepper Plus (44px touch target) -->
           <button hx-post="/cart/add/{{ item.id }}/" hx-target="#cart-container"
-                  class="w-8 h-8 rounded-lg bg-emerald-600 text-white font-bold flex items-center justify-center active:scale-95">
+                  class="w-10 h-10 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-lg flex items-center justify-center active:scale-90 transition touch-target">
             +
           </button>
-          <span class="w-16 text-right font-bold text-slate-900">₱{{ item.subtotal }}</span>
+
+          <span class="w-16 text-right font-black text-sm text-slate-900 pl-1">₱{{ item.subtotal }}</span>
         </div>
       </div>
       {% endfor %}
 
-      <div class="pt-2 border-t border-slate-200 flex justify-between items-center text-base font-extrabold text-slate-900">
-        <span>Kabuuan:</span>
-        <span class="text-emerald-700 text-lg">₱{{ cart_total }}</span>
+      <!-- Grand Total Banner -->
+      <div class="pt-3 border-t border-slate-200 flex justify-between items-center">
+        <span class="font-extrabold text-sm text-slate-700 uppercase tracking-wide">Kabuuan:</span>
+        <span class="text-emerald-700 font-black text-xl">₱{{ cart_total }}</span>
       </div>
     </div>
 
     <!-- Settlement Options -->
-    <form method="POST" action="/checkout/" class="space-y-3 pt-2">
+    <form method="POST" action="/checkout/" class="space-y-3 pt-1">
       {% csrf_token %}
       <div>
-        <label class="block text-xs font-bold text-slate-600 mb-1">Paraan ng Bayad:</label>
+        <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">Paraan ng Bayad:</label>
         <div class="grid grid-cols-2 gap-2">
-          <label class="border border-emerald-600 bg-emerald-50 text-emerald-800 rounded-xl p-3 flex items-center justify-center font-bold text-sm cursor-pointer has-[:checked]:ring-2 has-[:checked]:ring-emerald-600">
-            <input type="radio" name="payment_method" value="CASH" checked class="mr-2 accent-emerald-600" onchange="toggleCustomerSelect(false)">
-            Bayad Cash
+          
+          <label class="border-2 border-emerald-600 bg-emerald-50 text-emerald-900 rounded-xl p-3 flex items-center justify-center font-black text-sm cursor-pointer shadow-sm has-[:checked]:ring-2 has-[:checked]:ring-emerald-600 touch-target">
+            <input type="radio" name="payment_method" value="CASH" checked class="mr-2 accent-emerald-600 w-4 h-4 cursor-pointer" onchange="toggleCustomerSelect(false)">
+            <span>Bayad Cash</span>
           </label>
-          <label class="border border-amber-600 bg-amber-50 text-amber-800 rounded-xl p-3 flex items-center justify-center font-bold text-sm cursor-pointer has-[:checked]:ring-2 has-[:checked]:ring-amber-600">
-            <input type="radio" name="payment_method" value="UTANG" class="mr-2 accent-amber-600" onchange="toggleCustomerSelect(true)">
-            Ilista (Utang)
+          
+          <label class="border-2 border-amber-500 bg-amber-50 text-amber-900 rounded-xl p-3 flex items-center justify-center font-black text-sm cursor-pointer shadow-sm has-[:checked]:ring-2 has-[:checked]:ring-amber-500 touch-target">
+            <input type="radio" name="payment_method" value="UTANG" class="mr-2 accent-amber-600 w-4 h-4 cursor-pointer" onchange="toggleCustomerSelect(true)">
+            <span>Ilista (Utang)</span>
           </label>
+
+        </div>
+      </div>
+
+      <!-- Cash Tender & Sukli Calculator (Shown for Cash) -->
+      <div id="cash-tender-block" class="bg-white border border-slate-200 rounded-xl p-3 space-y-2 shadow-sm">
+        <div class="flex items-center justify-between">
+          <label for="cash-tender-input" class="text-xs font-black text-slate-700">Bayad ng Customer (₱):</label>
+          <div id="sukli-container" class="hidden text-xs">
+            <span id="sukli-display"></span>
+          </div>
+        </div>
+
+        <input type="number" step="0.25" min="0" id="cash-tender-input" placeholder="Hal. 50" oninput="calculateSukli()"
+               class="w-full border border-slate-300 rounded-xl px-3 py-2 text-base font-black text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600">
+
+        <!-- Quick Tender Presets -->
+        <div class="flex items-center gap-1.5 flex-wrap pt-0.5">
+          <button type="button" onclick="setTender('exact')" class="text-[11px] font-bold bg-emerald-100 text-emerald-900 hover:bg-emerald-200 px-2.5 py-1 rounded-lg">
+            Sakto
+          </button>
+          <button type="button" onclick="setTender(20)" class="text-[11px] font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 px-2.5 py-1 rounded-lg">
+            ₱20
+          </button>
+          <button type="button" onclick="setTender(50)" class="text-[11px] font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 px-2.5 py-1 rounded-lg">
+            ₱50
+          </button>
+          <button type="button" onclick="setTender(100)" class="text-[11px] font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 px-2.5 py-1 rounded-lg">
+            ₱100
+          </button>
+          <button type="button" onclick="setTender(500)" class="text-[11px] font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 px-2.5 py-1 rounded-lg">
+            ₱500
+          </button>
         </div>
       </div>
 
       <!-- Suki Selection (Hidden unless Utang selected) -->
-      <div id="customer-select-block" class="hidden space-y-1">
-        <label for="customer_id" class="block text-xs font-bold text-slate-700">Pangalan ng Suki:</label>
-        <select name="customer_id" id="customer_id" class="w-full border border-slate-300 rounded-xl p-2.5 text-sm bg-white font-medium">
-          <option value="">Pumili ng may utang...</option>
-          {% for cust in customers %}
-            <option value="{{ cust.id }}">{{ cust.name }} {% if cust.nickname %}({{ cust.nickname }}){% endif %} - Utang: ₱{{ cust.debt_balance }}</option>
-          {% endfor %}
-        </select>
+      <div id="customer-select-block" class="hidden space-y-1.5 bg-amber-50 border border-amber-300 rounded-xl p-3 shadow-sm">
+        <label for="customer_id" class="block text-xs font-black text-amber-900">Pangalan ng Suki na Maglilista:</label>
+        <div class="relative">
+          <select name="customer_id" id="customer_id"
+                  class="w-full border border-amber-300 rounded-xl px-3 py-2.5 text-sm bg-white font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500 appearance-none">
+            <option value="">Pumili ng suki...</option>
+            {% for cust in customers %}
+              <option value="{{ cust.id }}">
+                {{ cust.name }} {% if cust.nickname %}({{ cust.nickname }}){% endif %} • Utang: ₱{{ cust.debt_balance }} (Limit: ₱{{ cust.credit_limit }})
+              </option>
+            {% endfor %}
+          </select>
+          <i data-lucide="chevron-down" class="w-4 h-4 text-amber-700 absolute right-3 top-3 pointer-events-none"></i>
+        </div>
+        <p class="text-[10px] text-amber-700">Dadalhin ang kabuuang halaga sa talaan ng napiling suki.</p>
       </div>
 
-      <button type="submit" class="w-full py-4 bg-emerald-700 text-white font-extrabold rounded-xl shadow-md text-base uppercase tracking-wider active:scale-95 transition">
+      <!-- Submit Checkout Button -->
+      <button type="submit" id="checkout-submit-btn"
+              class="w-full py-4 bg-emerald-700 hover:bg-emerald-800 text-white font-black rounded-2xl shadow-lg text-base uppercase tracking-wider active:scale-95 transition touch-target">
         Kumpirmahin ang Benta (₱{{ cart_total }})
       </button>
 
-      <button type="button" hx-post="/cart/clear/" hx-target="#cart-container" class="w-full text-center text-xs text-rose-600 font-semibold py-1">
+      <!-- Clear Cart Link -->
+      <button type="button" hx-post="/cart/clear/" hx-target="#cart-container"
+              class="w-full text-center text-xs text-rose-600 hover:text-rose-700 font-bold py-1.5">
         Burahin ang Cart
       </button>
     </form>
 
   {% else %}
-    <div class="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center text-slate-400">
-      <p class="text-sm font-medium">Walang laman ang cart.</p>
-      <p class="text-xs text-slate-400 mt-1">Pumindot ng tingi o kumuha ng litrato ng counter.</p>
+    <div class="border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center text-slate-400 bg-white">
+      <i data-lucide="shopping-cart" class="w-8 h-8 mx-auto text-slate-300 mb-2"></i>
+      <p class="text-sm font-bold text-slate-600">Walang laman ang cart.</p>
+      <p class="text-xs text-slate-400 mt-1">Pumindot ng tingi sa itaas o kumuha ng litrato ng counter.</p>
     </div>
   {% endif %}
 </div>
+
+<script>
+  if (window.lucide) {
+    lucide.createIcons();
+  }
+</script>
