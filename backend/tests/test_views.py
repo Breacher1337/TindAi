@@ -87,6 +87,15 @@ def test_utang_view_and_payment(client, sample_customer):
     assert b"Mang Juan Dela Cruz" in resp.content
     assert b"250.00" in resp.content
 
+    # Search filter
+    search_resp = client.get(reverse('utang') + '?q=Juan')
+    assert search_resp.status_code == 200
+    assert b"Mang Juan Dela Cruz" in search_resp.content
+
+    nomatch_resp = client.get(reverse('utang') + '?q=NonExistent')
+    assert nomatch_resp.status_code == 200
+    assert b"Walang nahanap na suki" in nomatch_resp.content
+
     # Pay 100
     pay_resp = client.post(reverse('utang_pay'), {
         'customer_id': sample_customer.id,

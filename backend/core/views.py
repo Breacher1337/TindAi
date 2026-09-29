@@ -226,12 +226,33 @@ def inventory_view(request):
 
 def utang_view(request):
     """Lista ng Utang / Debtor Directory."""
-    customers = Customer.objects.filter(is_active=True).order_by('-debt_balance', 'name')
-    total_debt = customers.aggregate(Sum('debt_balance'))['debt_balance__sum'] or Decimal('0.00')
+    query = request.GET.get('q', '').strip()
+    customers_qs = Customer.objects.filter(is_active=True)
+
+    if query:
+        customers_qs = customers_qs.filter(
+            Q(name__icontains=query) | Q(nickname__icontains=query) | Q(phone__icontains=query)
+        )
+
+    customers = customers_qs.order_by('-debt_balance', 'name')
+    total_debt = Customer.objects.filter(is_active=True).aggregate(Sum('debt_balance'))['debt_balance__sum'] or Decimal('0.00')
+
+    # Compute utilization ratio for display
+    customer_list = []
+    for c in customers:
+        pct = 0
+        if c.credit_limit and c.credit_limit > 0:
+            pct = min(100, int((c.debt_balance / c.credit_limit) * 100))
+        customer_list.append({
+            'obj': c,
+            'credit_pct': pct,
+        })
 
     context = {
+        'customer_list': customer_list,
         'customers': customers,
         'total_debt': f"{total_debt:.2f}",
+        'query': query,
     }
     return render(request, 'utang.html', context)
 

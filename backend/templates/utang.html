@@ -3,53 +3,106 @@
 {% block title %}Lista ng Utang - TindAI{% endblock %}
 
 {% block content %}
-<div class="space-y-4">
+<div id="utang-container" class="space-y-4">
 
   <!-- Summary Debt Banner -->
-  <div class="bg-gradient-to-r from-amber-700 to-orange-800 text-white p-4 rounded-2xl shadow-md">
-    <div class="text-xs uppercase tracking-wider text-amber-200 font-bold">Kabuuang Pautang sa Tindahan</div>
-    <div class="text-2xl font-black mt-1">₱{{ total_debt }}</div>
-    <div class="text-[11px] text-amber-100 mt-0.5">{{ customers|length }} na suki ang may aktibong talaan</div>
+  <div class="bg-gradient-to-r from-amber-700 via-orange-700 to-amber-800 text-white p-4 rounded-2xl shadow-md">
+    <div class="flex items-center justify-between">
+      <div class="text-xs uppercase tracking-wider text-amber-200 font-bold">Kabuuang Pautang sa Tindahan</div>
+      <i data-lucide="book-open-check" class="w-4 h-4 text-amber-200"></i>
+    </div>
+    <div class="text-3xl font-black mt-1">₱{{ total_debt }}</div>
+    <div class="text-xs text-amber-100 mt-1 flex items-center gap-1.5">
+      <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+      <span>{{ customers|length }} na suki ang may aktibong talaan</span>
+    </div>
   </div>
 
-  <!-- Suki Debtor Directory -->
-  <div class="space-y-2">
-    <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider">Talaan ng mga Suki:</h3>
-    
-    {% for cust in customers %}
-    <div class="bg-white border border-slate-200 rounded-xl p-3 shadow-sm flex items-center justify-between">
-      <div class="flex-1 pr-2">
-        <div class="font-bold text-sm text-slate-900">
-          {{ cust.name }} {% if cust.nickname %}<span class="text-slate-500 font-normal">({{ cust.nickname }})</span>{% endif %}
-        </div>
-        <div class="text-xs text-slate-500">
-          {% if cust.phone %}<span>Tel: {{ cust.phone }}</span> | {% endif %}
-          <span>Limit: ₱{{ cust.credit_limit }}</span>
-        </div>
-      </div>
-
-      <div class="flex items-center space-x-2">
-        <div class="text-right mr-1">
-          <div class="text-sm font-black text-amber-700">₱{{ cust.debt_balance }}</div>
-          <div class="text-[10px] text-slate-400">Balanse</div>
-        </div>
-
-        <!-- Magbayad Button Trigger -->
-        <button onclick="openPaymentModal('{{ cust.id }}', '{{ cust.name }}', '{{ cust.debt_balance }}')"
-                class="bg-emerald-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg active:scale-95 shadow-sm">
-          Bayad
-        </button>
-
-        <!-- Copy SMS Reminder Trigger -->
-        <button onclick="copyReminder('{{ cust.nickname|default:cust.name }}', '{{ cust.debt_balance }}')"
-                class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs px-2.5 py-1.5 rounded-lg active:scale-95 border border-slate-300">
-          SMS
-        </button>
-      </div>
+  <!-- Search Suki -->
+  <form method="GET" action="/utang/" class="flex gap-2">
+    <div class="relative flex-1">
+      <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-3"></i>
+      <input type="text" name="q" value="{{ query }}" placeholder="Maghanap ng suki ayon sa pangalan..."
+             class="w-full border border-slate-300 rounded-xl pl-9 pr-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600"
+             hx-get="/utang/"
+             hx-trigger="keyup changed delay:350ms, search"
+             hx-target="#utang-container"
+             hx-select="#utang-container">
     </div>
+    {% if query %}
+    <a href="/utang/" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold px-3 py-2 rounded-xl text-xs flex items-center active:scale-95">
+      Linisin
+    </a>
+    {% endif %}
+  </form>
+
+  <!-- Suki Debtor Directory -->
+  <div class="space-y-2.5">
+    <div class="flex items-center justify-between px-1">
+      <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider">Direktoryo ng mga Suki</h3>
+      <span class="text-[11px] text-slate-400">Naka-ayos ayon sa pinakamataas</span>
+    </div>
+    
+    {% for item in customer_list %}
+    {% with cust=item.obj pct=item.credit_pct %}
+    <div class="bg-white border rounded-xl p-3.5 shadow-sm transition-all {% if cust.debt_balance > cust.credit_limit %}border-rose-400 bg-rose-50/30{% elif pct >= 80 %}border-amber-300 bg-amber-50/20{% else %}border-slate-200{% endif %}">
+      
+      <div class="flex items-start justify-between">
+        <div class="flex-1 pr-2">
+          <div class="font-black text-sm text-slate-900 leading-snug">
+            {{ cust.name }}
+            {% if cust.nickname %}<span class="text-slate-500 font-semibold text-xs ml-1">({{ cust.nickname }})</span>{% endif %}
+          </div>
+          <div class="text-xs text-slate-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
+            {% if cust.phone %}
+            <span class="text-slate-600 font-medium">{{ cust.phone }}</span>
+            <span>•</span>
+            {% endif %}
+            <span>Limit: <strong class="text-slate-700">₱{{ cust.credit_limit }}</strong></span>
+          </div>
+        </div>
+
+        <div class="text-right shrink-0">
+          <div class="text-base font-black {% if cust.debt_balance > cust.credit_limit %}text-rose-600{% elif cust.debt_balance > 0 %}text-amber-700{% else %}text-emerald-600{% endif %}">
+            ₱{{ cust.debt_balance }}
+          </div>
+          <div class="text-[10px] uppercase font-bold text-slate-400">Balanse</div>
+        </div>
+      </div>
+
+      <!-- Credit Limit Bar -->
+      <div class="mt-2.5 pt-2 border-t border-slate-100 flex items-center gap-2">
+        <div class="flex-1 bg-slate-100 rounded-full h-1.5 overflow-hidden">
+          <div class="h-full rounded-full transition-all {% if cust.debt_balance > cust.credit_limit %}bg-rose-600{% elif pct >= 80 %}bg-amber-500{% else %}bg-emerald-500{% endif %}"
+               style="width: {{ pct }}%;"></div>
+        </div>
+        <span class="text-[10px] font-bold text-slate-400 shrink-0">{{ pct }}% Nagamit</span>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="mt-3 flex items-center justify-end gap-2 pt-1">
+        {% if cust.debt_balance > 0 %}
+        <button onclick="openPaymentModal('{{ cust.id }}', '{{ cust.name|escapejs }}', '{{ cust.debt_balance }}')"
+                class="bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs px-3.5 py-1.5 rounded-lg active:scale-95 shadow-sm flex items-center gap-1">
+          <i data-lucide="hand-coins" class="w-3.5 h-3.5"></i>
+          <span>Magbayad</span>
+        </button>
+        {% endif %}
+
+        <button onclick="copyReminder('{{ cust.nickname|default:cust.name|escapejs }}', '{{ cust.debt_balance }}')"
+                class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs px-3 py-1.5 rounded-lg active:scale-95 border border-slate-200 flex items-center gap-1">
+          <i data-lucide="message-square" class="w-3.5 h-3.5 text-slate-500"></i>
+          <span>SMS Paalala</span>
+        </button>
+      </div>
+
+    </div>
+    {% endwith %}
     {% empty %}
-    <div class="p-6 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-xl text-sm">
-      Walang nakatalang pautang.
+    <div class="p-8 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-xl">
+      <i data-lucide="users" class="w-8 h-8 mx-auto text-slate-300 mb-2"></i>
+      <p class="text-sm font-semibold text-slate-600">Walang nahanap na suki.</p>
+      <a href="/utang/" class="inline-block mt-3 bg-slate-800 text-white text-xs font-bold px-3 py-1.5 rounded-lg">Ipakita Lahat</a>
     </div>
     {% endfor %}
   </div>
@@ -58,57 +111,118 @@
 
 <!-- Payment Modal -->
 <div id="payment-modal" class="fixed inset-0 bg-slate-900/60 z-50 hidden flex items-center justify-center p-4">
-  <div class="bg-white rounded-2xl max-w-xs w-full p-5 shadow-2xl space-y-4">
+  <div class="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl space-y-4">
     <div class="flex justify-between items-center pb-2 border-b border-slate-100">
-      <h3 class="font-bold text-base text-slate-900">Magtala ng Bayad</h3>
-      <button onclick="closePaymentModal()" class="text-slate-400 text-lg font-bold">&times;</button>
+      <div class="flex items-center gap-2">
+        <div class="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+          <i data-lucide="wallet" class="w-4 h-4"></i>
+        </div>
+        <h3 class="font-black text-base text-slate-900">Magtala ng Bayad</h3>
+      </div>
+      <button onclick="closePaymentModal()" class="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
     </div>
 
     <form method="POST" id="payment-form" action="/utang/pay/">
       {% csrf_token %}
       <input type="hidden" name="customer_id" id="modal-customer-id">
       
-      <div class="text-xs text-slate-600 mb-1">
-        Pangalan: <strong id="modal-customer-name" class="text-slate-900"></strong><br>
-        Kasalukuyang Utang: <strong id="modal-customer-debt" class="text-amber-700 font-black"></strong>
+      <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs space-y-1">
+        <div class="text-slate-500">Pangalan ng Suki:</div>
+        <div id="modal-customer-name" class="text-sm font-black text-slate-900"></div>
+        <div class="flex items-center justify-between pt-1 border-t border-slate-200 mt-2">
+          <span class="text-slate-500">Kasalukuyang Utang:</span>
+          <span id="modal-customer-debt" class="text-sm font-black text-amber-700"></span>
+        </div>
       </div>
 
       <div class="mt-3">
         <label for="pay_amount" class="block text-xs font-bold text-slate-700 mb-1">Halaga ng Ibinayad (₱):</label>
         <input type="number" step="0.25" min="1" name="amount" id="pay_amount" required
-               class="w-full border border-slate-300 rounded-xl p-2.5 text-base font-bold bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600">
+               placeholder="Hal. 100"
+               class="w-full border border-slate-300 rounded-xl p-2.5 text-lg font-black text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600">
       </div>
 
-      <div class="mt-4 flex gap-2">
-        <button type="button" onclick="closePaymentModal()" class="flex-1 py-2.5 bg-slate-100 text-slate-700 font-bold rounded-xl text-xs">
+      <!-- Quick Preset Buttons -->
+      <div class="flex gap-1.5 flex-wrap pt-1">
+        <button type="button" onclick="setPreset('full')" class="text-[11px] font-bold bg-amber-100 text-amber-900 hover:bg-amber-200 px-2.5 py-1 rounded-lg">
+          Buong Bayad
+        </button>
+        <button type="button" onclick="setAmount(50)" class="text-[11px] font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 px-2.5 py-1 rounded-lg">
+          ₱50
+        </button>
+        <button type="button" onclick="setAmount(100)" class="text-[11px] font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 px-2.5 py-1 rounded-lg">
+          ₱100
+        </button>
+        <button type="button" onclick="setAmount(200)" class="text-[11px] font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 px-2.5 py-1 rounded-lg">
+          ₱200
+        </button>
+      </div>
+
+      <div class="mt-4 flex gap-2 pt-2 border-t border-slate-100">
+        <button type="button" onclick="closePaymentModal()" class="flex-1 py-2.5 bg-slate-100 text-slate-700 font-bold rounded-xl text-xs active:scale-95">
           Kanselahin
         </button>
-        <button type="submit" class="flex-1 py-2.5 bg-emerald-700 text-white font-extrabold rounded-xl text-xs shadow-md active:scale-95">
-          Itala ang Bayad
+        <button type="submit" class="flex-1 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold rounded-xl text-xs shadow-md active:scale-95">
+          Kumpirmahin
         </button>
       </div>
     </form>
   </div>
 </div>
 
+<!-- Toast Notification -->
+<div id="toast" class="fixed bottom-20 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-xl hidden transition-all z-50 flex items-center gap-2">
+  <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400"></i>
+  <span id="toast-text">Na-kopya na ang SMS Paalala!</span>
+</div>
+
 <script>
+  let currentRawDebt = 0;
+
   function openPaymentModal(id, name, debt) {
+    currentRawDebt = parseFloat(debt) || 0;
     document.getElementById('modal-customer-id').value = id;
     document.getElementById('modal-customer-name').innerText = name;
     document.getElementById('modal-customer-debt').innerText = '₱' + debt;
     document.getElementById('pay_amount').value = '';
+    document.getElementById('pay_amount').max = debt;
     document.getElementById('payment-modal').classList.remove('hidden');
+    if (window.lucide) lucide.createIcons();
   }
 
   function closePaymentModal() {
     document.getElementById('payment-modal').classList.add('hidden');
   }
 
+  function setAmount(val) {
+    document.getElementById('pay_amount').value = val;
+  }
+
+  function setPreset(type) {
+    if (type === 'full') {
+      document.getElementById('pay_amount').value = currentRawDebt;
+    }
+  }
+
   function copyReminder(name, debt) {
     const msg = `Magandang araw po ${name}. Paalala lamang po mula sa ating tindahan tungkol sa inyong balanse na ₱${debt}. Maraming salamat po sa inyong tiwala at suporta.`;
     navigator.clipboard.writeText(msg).then(() => {
-      alert('Na-kopya na ang SMS Paalala sa clipboard:\n\n' + msg);
+      showToast('Na-kopya na sa clipboard ang SMS Paalala para kay ' + name);
     });
+  }
+
+  function showToast(text) {
+    const toast = document.getElementById('toast');
+    const toastText = document.getElementById('toast-text');
+    toastText.innerText = text;
+    toast.classList.remove('hidden');
+    setTimeout(() => {
+      toast.classList.add('hidden');
+    }, 2800);
+  }
+
+  if (window.lucide) {
+    lucide.createIcons();
   }
 </script>
 {% endblock %}
