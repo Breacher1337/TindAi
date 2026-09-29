@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: tindai
+    runtime: python
+    buildCommand: pip install -r backend/requirements.txt && python backend/manage.py collectstatic --no-input && python backend/manage.py migrate && python backend/manage.py seed_catalog
+    startCommand: gunicorn --chdir backend config.wsgi:application
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0
+      - key: DJANGO_DEBUG
+        value: "False"
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: GEMINI_API_KEY
+        sync: false
