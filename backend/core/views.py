@@ -307,6 +307,7 @@ def restock_calculate(request):
             expected_profit = (prod.retail_price * 6 - pack_cost) * packs_to_buy
             restock_items.append({
                 'name': prod.name,
+                'category': prod.category,
                 'packs': packs_to_buy,
                 'pack_unit': prod.pack_unit,
                 'unit_cost': f"{pack_cost:.2f}",
@@ -319,9 +320,14 @@ def restock_calculate(request):
         if remaining_budget < Decimal('100.00'):
             break
 
+    total_profit = sum(Decimal(it['expected_profit']) for it in restock_items)
+
     context = {
         'budget': budget,
         'restock_items': restock_items,
         'total_spend': f"{total_spend:.2f}",
+        'remaining_budget': f"{remaining_budget:.2f}",
+        'total_profit': f"{total_profit:.2f}",
+        'items_count': len(restock_items),
     }
     return render(request, 'restock.html', context)

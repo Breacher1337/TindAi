@@ -11,6 +11,18 @@
     /* Mobile-first touch ergonomics */
     body { -webkit-tap-highlight-color: transparent; }
     .touch-target { min-height: 48px; min-width: 48px; }
+
+    /* Print Stylesheet for Shopping Lists */
+    @media print {
+      body { background: white !important; font-size: 12pt !important; }
+      header, nav, .no-print { display: none !important; }
+      .max-w-md { max-width: 100% !important; box-shadow: none !important; padding-bottom: 0 !important; }
+      main { padding: 0 !important; }
+      .print-only { display: block !important; }
+    }
+    @media screen {
+      .print-only { display: none !important; }
+    }
   </style>
 </head>
 <body class="bg-slate-200 text-slate-900 font-sans antialiased" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
