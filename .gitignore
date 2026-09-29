@@ -64,5 +64,6 @@ references/
 local_docs/
 .cocoindex_code/
 1.0.0a13
+.~lock.*#
 
 
