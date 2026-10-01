@@ -11,6 +11,7 @@ urlpatterns = [
     
     # Customer-facing mobile screens & HTMX endpoints
     path('', views.pos_view, name='pos'),
+    path('pos/', views.pos_view, name='pos_page'),
     path('cart/add/<int:product_id>/', views.cart_add, name='cart_add'),
     path('cart/add-by-id/', views.cart_add_by_id, name='cart_add_by_id'),
     path('cart/remove/<int:product_id>/', views.cart_remove, name='cart_remove'),
@@ -22,4 +23,6 @@ urlpatterns = [
     path('utang/pay/', views.utang_pay_action, name='utang_pay'),
     path('restock/', views.restock_view, name='restock'),
     path('restock/calculate/', views.restock_calculate, name='restock_calculate'),
+    path('analytics/', views.analytics_view, name='analytics'),
 ]
+

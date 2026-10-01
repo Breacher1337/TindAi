@@ -1,4 +1,6 @@
-from django.db import models
+from decimal import Decimal
+from django.core.exceptions import ValidationError
+from django.db import IntegrityError, models
 from django.utils import timezone
 
 
@@ -10,7 +12,12 @@ class Product(models.Model):
     category = models.CharField(max_length=100, db_index=True)
     wholesale_cost = models.DecimalField(max_digits=10, decimal_places=2, help_text="Purchase cost per pack or bulk unit")
     retail_price = models.DecimalField(max_digits=10, decimal_places=2, help_text="Tingi / piece retail selling price")
-    stock_quantity = models.IntegerField(default=0, help_text="Current available inventory count (in tingi units)")
+    stock_quantity = models.DecimalField(
+        max_digits=10,
+        decimal_places=4,
+        default=Decimal('0.0000'),
+        help_text="Available inventory count (supports fractional units e.g. boxes)"
+    )
     reorder_point = models.IntegerField(default=10, help_text="Threshold to trigger automated restocking")
     pack_unit = models.CharField(max_length=50, default="pack", help_text="Wholesale purchase unit (e.g. box, bundle, case)")
     tingi_unit = models.CharField(max_length=50, default="piece", help_text="Break-bulk retail sale unit (e.g. piece, sachet, can)")
@@ -112,8 +119,14 @@ class TransactionItem(models.Model):
     """Line item in a checkout transaction."""
     transaction = models.ForeignKey(Transaction, on_delete=models.CASCADE, related_name='items')
     product = models.ForeignKey(Product, on_delete=models.PROTECT, related_name='transaction_items')
-    quantity = models.PositiveIntegerField(default=1)
+    quantity = models.DecimalField(max_digits=10, decimal_places=4, default=Decimal('1.0000'))
     unit_price = models.DecimalField(max_digits=10, decimal_places=2)
+    cost_price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        help_text="Wholesale purchase unit cost at time of sale"
+    )
     subtotal = models.DecimalField(max_digits=10, decimal_places=2)
 
     class Meta:
@@ -138,3 +151,77 @@ class RestockRun(models.Model):
 
     def __str__(self):
         return f"Restock Run #{self.id} - Budget: ₱{self.budget:.2f}, Spent: ₱{self.total_spent:.2f}"
+
+
+class StoreConfig(models.Model):
+    """Singleton configuration for store identity, caretaker, and default pricing rules."""
+    store_name = models.CharField(
+        max_length=255,
+        default="TindAI Sari-Sari Store",
+        help_text="Official name of the sari-sari store"
+    )
+    caretaker_identity = models.CharField(
+        max_length=255,
+        default="Tindero / Tindera",
+        help_text="Name or role of current store caretaker"
+    )
+    default_retail_markup_percentage = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal("15.00"),
+        help_text="Default retail markup percentage applied to wholesale cost (e.g. 15.00 for 15%)"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Store Configuration"
+        verbose_name_plural = "Store Configuration"
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(pk=1),
+                name="single_store_config_record"
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.store_name} ({self.caretaker_identity})"
+
+    @property
+    def caretaker_name(self) -> str:
+        return self.caretaker_identity
+
+    @property
+    def default_markup_percentage(self) -> Decimal:
+        return self.default_retail_markup_percentage
+
+    @classmethod
+    def get_solo(cls) -> "StoreConfig":
+        """
+        Retrieve singleton instance or create with default values if non-existent.
+        Guarantees deterministic primary key = 1.
+        """
+        obj, _ = cls.objects.get_or_create(
+            pk=1,
+            defaults={
+                "store_name": "TindAI Sari-Sari Store",
+                "caretaker_identity": "Tindero / Tindera",
+                "default_retail_markup_percentage": Decimal("15.00"),
+            }
+        )
+        return obj
+
+    def clean(self):
+        super().clean()
+        if self.pk is not None and self.pk != 1:
+            raise ValidationError("Only one StoreConfig instance is permitted (ID must be 1).")
+        if not self.pk and StoreConfig.objects.filter(pk=1).exists():
+            raise ValidationError("Only one StoreConfig instance is permitted.")
+
+    def save(self, *args, **kwargs):
+        if self.pk is not None and self.pk != 1:
+            raise IntegrityError("Only one StoreConfig instance is permitted (ID must be 1).")
+        if not self.pk and StoreConfig.objects.filter(pk=1).exists():
+            raise IntegrityError("Only one StoreConfig instance is permitted.")
+        self.pk = 1
+        super().save(*args, **kwargs)

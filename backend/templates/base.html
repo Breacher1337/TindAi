@@ -7,6 +7,7 @@
   <!-- Tailwind CSS & HTMX via CDN: Zero Build Step Required -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/htmx.org@2.0.3"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
   <style>
     /* Mobile-first touch ergonomics */
     body { -webkit-tap-highlight-color: transparent; }
@@ -49,8 +50,8 @@
     </main>
 
     <!-- Bottom Thumb Navigation Bar -->
-    <nav class="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white border-t border-slate-200 grid grid-cols-4 z-40 shadow-lg">
-      <a href="/" class="py-2.5 flex flex-col items-center justify-center touch-target {% if request.path == '/' %}text-emerald-700 font-bold bg-emerald-50{% else %}text-slate-500 hover:text-slate-800{% endif %}">
+    <nav class="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white border-t border-slate-200 grid grid-cols-5 z-40 shadow-lg">
+      <a href="/pos/" class="py-2.5 flex flex-col items-center justify-center touch-target {% if request.path == '/' or request.path == '/pos/' %}text-emerald-700 font-bold bg-emerald-50{% else %}text-slate-500 hover:text-slate-800{% endif %}">
         <span class="text-xs uppercase tracking-wider">Benta</span>
         <span class="text-[10px] text-slate-400">POS</span>
       </a>
@@ -65,6 +66,10 @@
       <a href="/restock/" class="py-2.5 flex flex-col items-center justify-center touch-target {% if request.path == '/restock/' %}text-emerald-700 font-bold bg-emerald-50{% else %}text-slate-500 hover:text-slate-800{% endif %}">
         <span class="text-xs uppercase tracking-wider">Bili</span>
         <span class="text-[10px] text-slate-400">Restock</span>
+      </a>
+      <a href="/analytics/" class="py-2.5 flex flex-col items-center justify-center touch-target {% if request.path == '/analytics/' %}text-emerald-700 font-bold bg-emerald-50{% else %}text-slate-500 hover:text-slate-800{% endif %}">
+        <span class="text-xs uppercase tracking-wider">Tubo</span>
+        <span class="text-[10px] text-slate-400">Analytics</span>
       </a>
     </nav>
 

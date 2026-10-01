@@ -11,6 +11,13 @@ from django.utils.translation import gettext_lazy as _
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+try:
+    import dotenv
+    dotenv.load_dotenv(BASE_DIR.parent / '.env')
+    dotenv.load_dotenv(BASE_DIR / '.env')
+except ImportError:
+    pass
+
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-tindai-super-secret-key-change-in-prod')
 
@@ -204,3 +211,7 @@ UNFOLD = {
         ],
     },
 }
+
+# Google Gemini API Configuration
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
+GEMINI_MODEL = os.environ.get('GEMINI_MODEL', 'gemini-2.5-flash')

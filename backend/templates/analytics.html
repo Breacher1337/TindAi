@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+
+{% block title %}Tubo & Kita (Analytics) - TindAI{% endblock %}
+
+{% block content %}
+<div class="space-y-4">
+
+  <!-- Period Selector Tabs -->
+  <div class="flex items-center justify-between bg-slate-100 p-1 rounded-xl border border-slate-300">
+    <a href="/analytics/?period=today"
+       class="flex-1 py-1.5 text-center text-xs font-bold rounded-lg transition-all {% if period == 'today' %}bg-white text-emerald-800 shadow-sm{% else %}text-slate-600 hover:text-slate-900{% endif %}">
+      Ngayong Araw
+    </a>
+    <a href="/analytics/?period=week"
+       class="flex-1 py-1.5 text-center text-xs font-bold rounded-lg transition-all {% if period == 'week' %}bg-white text-emerald-800 shadow-sm{% else %}text-slate-600 hover:text-slate-900{% endif %}">
+      7 Araw
+    </a>
+    <a href="/analytics/?period=month"
+       class="flex-1 py-1.5 text-center text-xs font-bold rounded-lg transition-all {% if period == 'month' %}bg-white text-emerald-800 shadow-sm{% else %}text-slate-600 hover:text-slate-900{% endif %}">
+      30 Araw
+    </a>
+    <a href="/analytics/?period=all"
+       class="flex-1 py-1.5 text-center text-xs font-bold rounded-lg transition-all {% if period == 'all' or not period %}bg-white text-emerald-800 shadow-sm{% else %}text-slate-600 hover:text-slate-900{% endif %}">
+      Lahat
+    </a>
+  </div>
+
+  <!-- Primary Net Profit Banner -->
+  <div class="bg-gradient-to-br from-emerald-800 via-teal-900 to-slate-900 text-white p-5 rounded-2xl shadow-md relative overflow-hidden">
+    <div class="flex justify-between items-start">
+      <div>
+        <span class="text-[11px] font-black uppercase tracking-wider text-emerald-300">Malinis na Tubo (Net Profit)</span>
+        <div class="text-3xl font-black mt-0.5 tracking-tight">₱{{ net_profit }}</div>
+      </div>
+      <div class="text-right">
+        <span class="text-[11px] font-bold text-emerald-200">Tubo %</span>
+        <div class="text-lg font-black text-amber-300">{{ profit_margin_pct }}%</div>
+      </div>
+    </div>
+    
+    <div class="mt-3 pt-3 border-t border-emerald-700/60 flex items-center justify-between text-xs text-emerald-100">
+      <span>Kabuuang Benta: <strong>₱{{ gross_revenue }}</strong></span>
+      <span>Puhunan (COGS): <strong>₱{{ cogs }}</strong></span>
+    </div>
+  </div>
+
+  <!-- Strict Liquidity Isolation: Physical Cash Drawer vs Uncollected Debt -->
+  <div class="space-y-3">
+    <div class="flex items-center justify-between px-1">
+      <h3 class="text-xs font-black text-slate-700 uppercase tracking-wider">Pera sa Kahon vs. Utang</h3>
+      <span class="text-[10px] text-slate-500 font-semibold">Strict Liquidity Isolation</span>
+    </div>
+
+    <!-- Physical Cash-on-Hand Card -->
+    <div class="bg-white border-2 border-emerald-500 rounded-2xl p-4 shadow-sm">
+      <div class="flex items-start justify-between">
+        <div>
+          <div class="flex items-center gap-1.5">
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+            <span class="text-xs font-black text-emerald-900 uppercase tracking-wide">Cash sa Kahon (Cash-on-Hand)</span>
+          </div>
+          <div class="text-2xl font-black text-slate-900 mt-1">₱{{ cash_on_hand }}</div>
+        </div>
+        <span class="text-[10px] font-bold uppercase bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
+          Magagamit Pambili
+        </span>
+      </div>
+      <p class="text-[11px] text-slate-600 mt-2">
+        Tunay na pisikal na pera sa kaha: <strong>₱{{ cash_sales_total }}</strong> (benta) + <strong>₱{{ repayments_total }}</strong> (bayad utang).
+      </p>
+    </div>
+
+    <!-- Uncollected Utang Card -->
+    <div class="bg-white border-2 border-amber-500 rounded-2xl p-4 shadow-sm">
+      <div class="flex items-start justify-between">
+        <div>
+          <div class="flex items-center gap-1.5">
+            <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+            <span class="text-xs font-black text-amber-900 uppercase tracking-wide">Pautang na 'Di Pa Singil</span>
+          </div>
+          <div class="text-2xl font-black text-slate-900 mt-1">₱{{ uncollected_utang }}</div>
+        </div>
+        <span class="text-[10px] font-bold uppercase bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
+          Huwag Ibilang na Cash
+        </span>
+      </div>
+      <p class="text-[11px] text-slate-600 mt-2">
+        Nasa kamay pa ng suki ang halagang ito. Hindi puwedeng ipambayad sa Puregold hangga't 'di nasisingil.
+      </p>
+    </div>
+  </div>
+
+  <!-- Operational Breakdown Grid -->
+  <div class="space-y-2 pt-1">
+    <h3 class="text-xs font-black text-slate-700 uppercase tracking-wider px-1">Detalye ng Operasyon</h3>
+    
+    <div class="grid grid-cols-2 gap-2.5">
+      <div class="bg-white border border-slate-200 rounded-xl p-3 shadow-sm">
+        <span class="text-[10px] font-bold text-slate-500 uppercase">Cash Sales</span>
+        <div class="text-base font-black text-slate-900 mt-0.5">₱{{ cash_sales_total }}</div>
+        <span class="text-[10px] text-slate-400">Bayad agad</span>
+      </div>
+
+      <div class="bg-white border border-slate-200 rounded-xl p-3 shadow-sm">
+        <span class="text-[10px] font-bold text-slate-500 uppercase">Utang Sales</span>
+        <div class="text-base font-black text-amber-700 mt-0.5">₱{{ utang_sales_total }}</div>
+        <span class="text-[10px] text-slate-400">Inilista</span>
+      </div>
+
+      <div class="bg-white border border-slate-200 rounded-xl p-3 shadow-sm">
+        <span class="text-[10px] font-bold text-slate-500 uppercase">Singil / Repayments</span>
+        <div class="text-base font-black text-emerald-700 mt-0.5">₱{{ repayments_total }}</div>
+        <span class="text-[10px] text-slate-400">Pumasok sa kaha</span>
+      </div>
+
+      <div class="bg-white border border-slate-200 rounded-xl p-3 shadow-sm">
+        <span class="text-[10px] font-bold text-slate-500 uppercase">Bilang ng Transaksyon</span>
+        <div class="text-base font-black text-slate-900 mt-0.5">{{ total_transactions_count }}</div>
+        <span class="text-[10px] text-slate-400">Naitalang benta</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

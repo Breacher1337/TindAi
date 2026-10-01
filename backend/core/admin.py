@@ -1,7 +1,7 @@
 from django.contrib import admin
 from unfold.admin import ModelAdmin, TabularInline
 from unfold.decorators import display
-from .models import Product, Customer, CustomerPayment, Transaction, TransactionItem, RestockRun
+from .models import Product, Customer, CustomerPayment, Transaction, TransactionItem, RestockRun, StoreConfig
 
 
 admin.site.site_header = "TindAI Sari-Sari Store Management"
@@ -160,3 +160,15 @@ class RestockRunAdmin(ModelAdmin):
     @display(description='Total Spent', ordering='total_spent')
     def formatted_spent(self, obj):
         return f"₱{obj.total_spent:.2f}"
+
+
+@admin.register(StoreConfig)
+class StoreConfigAdmin(ModelAdmin):
+    list_display = ('store_name', 'caretaker_identity', 'default_retail_markup_percentage', 'updated_at')
+    readonly_fields = ('created_at', 'updated_at')
+
+    def has_add_permission(self, request):
+        return not StoreConfig.objects.exists()
+
+    def has_delete_permission(self, request, obj=None):
+        return False

@@ -4,6 +4,8 @@ from django.http import HttpResponse
 from django.db import transaction
 from django.db.models import Sum, Q
 from core.models import Product, Customer, CustomerPayment, Transaction as SaleTransaction, TransactionItem
+from core.services.knapsack import solve_restock_knapsack
+from core.services.analytics import get_financial_analytics
 
 
 def _get_cart(request):
@@ -19,7 +21,8 @@ def _calculate_cart_totals(cart):
     items = []
     total = Decimal('0.00')
     for product_id, data in cart.items():
-        subtotal = Decimal(str(data['price'])) * int(data['qty'])
+        qty = Decimal(str(data['qty']))
+        subtotal = Decimal(str(data['price'])) * qty
         items.append({
             'id': product_id,
             'name': data['name'],
@@ -59,7 +62,8 @@ def cart_add(request, product_id):
     pid = str(product.id)
 
     if pid in cart:
-        cart[pid]['qty'] += 1
+        curr_qty = Decimal(str(cart[pid]['qty'])) + Decimal('1')
+        cart[pid]['qty'] = int(curr_qty) if curr_qty == int(curr_qty) else float(curr_qty)
     else:
         cart[pid] = {
             'name': product.name,
@@ -94,8 +98,10 @@ def cart_remove(request, product_id):
     pid = str(product_id)
 
     if pid in cart:
-        if cart[pid]['qty'] > 1:
-            cart[pid]['qty'] -= 1
+        curr_qty = Decimal(str(cart[pid]['qty']))
+        if curr_qty > 1:
+            new_qty = curr_qty - Decimal('1')
+            cart[pid]['qty'] = int(new_qty) if new_qty == int(new_qty) else float(new_qty)
         else:
             del cart[pid]
         _save_cart(request, cart)
@@ -140,25 +146,39 @@ def checkout_action(request):
     customer = None
     if payment_method == 'UTANG':
         if not customer_id:
-            return redirect('pos')
-        customer = get_object_or_404(Customer, pk=customer_id)
+            return HttpResponse("Customer is required for Utang transactions.", status=400)
+        customer = get_object_or_404(Customer.objects.select_for_update(), pk=customer_id)
+        if not customer:
+            return HttpResponse("Customer is required for Utang transactions.", status=400)
 
-    # Calculate total
+    # Calculate total and validate stock
     total_amount = Decimal('0.00')
-    items_to_create = []
+    items_to_process = []
 
     for pid, data in cart.items():
-        product = get_object_or_404(Product, pk=int(pid))
-        qty = int(data['qty'])
+        product = get_object_or_404(Product.objects.select_for_update(), pk=int(pid))
+        qty = Decimal(str(data['qty']))
+
+        # Stock non-negativity guard: if stock < qty, block checkout
+        if product.stock_quantity < qty:
+            return redirect('pos')
+
         unit_price = Decimal(str(data['price']))
         subtotal = unit_price * qty
         total_amount += subtotal
+        items_to_process.append((product, qty, unit_price, subtotal))
 
-        # Decrement stock
-        product.stock_quantity = max(0, product.stock_quantity - qty)
+    # Check credit limit ceiling for UTANG
+    if payment_method == 'UTANG':
+        if customer.debt_balance + total_amount > customer.credit_limit:
+            return HttpResponse("Lagpas sa Credit Limit!", status=400)
+        customer.debt_balance += total_amount
+        customer.save(update_fields=['debt_balance', 'updated_at'])
+
+    # Decrement stock
+    for product, qty, unit_price, subtotal in items_to_process:
+        product.stock_quantity = product.stock_quantity - qty
         product.save(update_fields=['stock_quantity', 'updated_at'])
-
-        items_to_create.append((product, qty, unit_price, subtotal))
 
     # Create transaction
     sale = SaleTransaction.objects.create(
@@ -168,19 +188,15 @@ def checkout_action(request):
         payment_status='PAID' if payment_method == 'CASH' else 'PENDING',
     )
 
-    for prod, qty, price, sub in items_to_create:
+    for prod, qty, price, sub in items_to_process:
         TransactionItem.objects.create(
             transaction=sale,
             product=prod,
             quantity=qty,
             unit_price=price,
+            cost_price=prod.wholesale_cost,
             subtotal=sub,
         )
-
-    # If utang, update customer debt
-    if payment_method == 'UTANG' and customer:
-        customer.debt_balance += total_amount
-        customer.save(update_fields=['debt_balance', 'updated_at'])
 
     # Clear cart
     _save_cart(request, {})
@@ -260,20 +276,31 @@ def utang_view(request):
 @transaction.atomic
 def utang_pay_action(request):
     """Record cash debt liquidation for customer."""
-    if request.method == 'POST':
-        customer_id = request.POST.get('customer_id')
-        amount_str = request.POST.get('amount', '0')
-        customer = get_object_or_404(Customer, pk=customer_id)
-        amount = Decimal(amount_str)
+    if request.method != 'POST':
+        return redirect('utang')
 
-        if amount > 0:
-            CustomerPayment.objects.create(
-                customer=customer,
-                amount=amount,
-                notes='Cash repayment at store counter',
-            )
-            customer.debt_balance = max(Decimal('0.00'), customer.debt_balance - amount)
-            customer.save(update_fields=['debt_balance', 'updated_at'])
+    customer_id = request.POST.get('customer_id')
+    if not customer_id:
+        return HttpResponse("Customer ID is required.", status=400)
+
+    customer = get_object_or_404(Customer.objects.select_for_update(), pk=customer_id)
+    amount_str = request.POST.get('amount', '0')
+
+    try:
+        amount = Decimal(str(amount_str))
+    except Exception:
+        return HttpResponse("Invalid payment amount.", status=400)
+
+    if amount <= Decimal('0.00'):
+        return HttpResponse("Payment amount must be greater than zero.", status=400)
+
+    CustomerPayment.objects.create(
+        customer=customer,
+        amount=amount,
+        notes=request.POST.get('notes') or 'Cash repayment at store counter',
+    )
+    customer.debt_balance = max(Decimal('0.00'), customer.debt_balance - amount)
+    customer.save(update_fields=['debt_balance', 'updated_at'])
 
     return redirect('utang')
 
@@ -285,49 +312,52 @@ def restock_view(request):
 
 def restock_calculate(request):
     """Calculate procurement shopping list within revolving cash budget."""
-    budget = Decimal(request.POST.get('budget', '5000'))
-    
-    # Priority: items where stock is low or below ROP
-    candidates = Product.objects.filter(is_active=True).order_by('stock_quantity')
-    
-    restock_items = []
-    remaining_budget = budget
-    total_spend = Decimal('0.00')
+    budget_raw = request.POST.get('budget', '5000')
+    try:
+        budget = Decimal(str(budget_raw))
+        if budget <= Decimal('0.00'):
+            budget = Decimal('5000.00')
+    except Exception:
+        budget = Decimal('5000.00')
 
-    for prod in candidates:
-        pack_cost = prod.wholesale_cost
-        if pack_cost <= 0:
-            continue
-        
-        # Determine packs needed
-        packs_to_buy = max(1, (prod.reorder_point * 2 - prod.stock_quantity) // 6)
-        line_cost = pack_cost * packs_to_buy
+    # Candidate products: active items where stock <= reorder_point * 2; fallback to all active
+    products_qs = Product.objects.filter(is_active=True)
+    candidates = [p for p in products_qs if p.stock_quantity <= p.reorder_point * 2]
+    if not candidates:
+        candidates = list(products_qs)
 
-        if line_cost <= remaining_budget:
-            expected_profit = (prod.retail_price * 6 - pack_cost) * packs_to_buy
-            restock_items.append({
-                'name': prod.name,
-                'category': prod.category,
-                'packs': packs_to_buy,
-                'pack_unit': prod.pack_unit,
-                'unit_cost': f"{pack_cost:.2f}",
-                'line_total': f"{line_cost:.2f}",
-                'expected_profit': f"{max(Decimal('0.00'), expected_profit):.2f}",
-            })
-            remaining_budget -= line_cost
-            total_spend += line_cost
-
-        if remaining_budget < Decimal('100.00'):
-            break
-
-    total_profit = sum(Decimal(it['expected_profit']) for it in restock_items)
+    knapsack_res = solve_restock_knapsack(candidates, budget)
 
     context = {
-        'budget': budget,
-        'restock_items': restock_items,
-        'total_spend': f"{total_spend:.2f}",
-        'remaining_budget': f"{remaining_budget:.2f}",
-        'total_profit': f"{total_profit:.2f}",
-        'items_count': len(restock_items),
+        'budget': f"{budget:.2f}",
+        'restock_items': knapsack_res['items'],
+        'categorized_items': knapsack_res['categorized_items'],
+        'total_spend': f"{knapsack_res['total_spent']:.2f}",
+        'remaining_budget': f"{knapsack_res['remaining_budget']:.2f}",
+        'total_profit': f"{knapsack_res['expected_profit']:.2f}",
+        'items_count': len(knapsack_res['items']),
+        'solver_status': knapsack_res['solver_status'],
     }
     return render(request, 'restock.html', context)
+
+
+def analytics_view(request):
+    """Real-time financial dashboard displaying profit, margins, and strict cash vs utang liquidity."""
+    period = request.GET.get('period', 'all')
+    analytics = get_financial_analytics(period=period)
+    context = {
+        'period': period,
+        'analytics': analytics,
+        'gross_revenue': f"{analytics['gross_revenue']:.2f}",
+        'cogs': f"{analytics['cogs']:.2f}",
+        'net_profit': f"{analytics['net_profit']:.2f}",
+        'profit_margin_pct': f"{analytics['profit_margin_pct']:.1f}",
+        'cash_on_hand': f"{analytics['cash_on_hand']:.2f}",
+        'uncollected_utang': f"{analytics['uncollected_utang']:.2f}",
+        'cash_sales_total': f"{analytics['cash_sales_total']:.2f}",
+        'utang_sales_total': f"{analytics['utang_sales_total']:.2f}",
+        'repayments_total': f"{analytics['repayments_total']:.2f}",
+        'total_transactions_count': analytics['total_transactions_count'],
+    }
+    return render(request, 'analytics.html', context)
+

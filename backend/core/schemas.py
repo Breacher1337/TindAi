@@ -16,7 +16,7 @@ class ProductIn(Schema):
     category: str
     wholesale_cost: Decimal
     retail_price: Decimal
-    stock_quantity: int = 0
+    stock_quantity: Decimal = Decimal("0.0000")
     reorder_point: int = 10
     pack_unit: str = "pack"
     tingi_unit: str = "piece"
@@ -31,7 +31,7 @@ class ProductOut(Schema):
     category: str
     wholesale_cost: Decimal
     retail_price: Decimal
-    stock_quantity: int
+    stock_quantity: Decimal
     reorder_point: int
     pack_unit: str
     tingi_unit: str
@@ -86,7 +86,7 @@ class CustomerPaymentOut(Schema):
 
 class TransactionItemIn(Schema):
     product_id: int
-    quantity: int = Field(default=1, gt=0)
+    quantity: Decimal = Field(default=Decimal("1.0000"), gt=0)
 
 
 class TransactionItemOut(Schema):
@@ -94,8 +94,9 @@ class TransactionItemOut(Schema):
     product_id: int
     product_name: str
     product_sku: str
-    quantity: int
+    quantity: Decimal
     unit_price: Decimal
+    cost_price: Decimal = Decimal("0.00")
     subtotal: Decimal
 
 
@@ -210,3 +211,22 @@ class ReceiptOcrOut(Schema):
     date: str
     total_amount: Decimal
     items: List[ParsedReceiptItem]
+
+
+# -------------------------------------------------------------
+# Financial Analytics Schemas
+# -------------------------------------------------------------
+
+class AnalyticsOut(Schema):
+    gross_revenue: Decimal
+    cogs: Decimal
+    net_profit: Decimal
+    profit_margin_pct: float
+    cash_on_hand: Decimal
+    uncollected_utang: Decimal
+    cash_sales_total: Decimal
+    utang_sales_total: Decimal
+    repayments_total: Decimal
+    total_transactions_count: int
+    period: Optional[str] = "all"
+
