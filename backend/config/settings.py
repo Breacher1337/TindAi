@@ -5,6 +5,8 @@ Generated for TindAI mobile-first sari-sari store management.
 
 from pathlib import Path
 import os
+from django.urls import reverse_lazy
+from django.utils.translation import gettext_lazy as _
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -19,6 +21,9 @@ ALLOWED_HOSTS = ['*']
 
 # Application definition
 INSTALLED_APPS = [
+    'unfold',
+    'unfold.contrib.filters',
+    'unfold.contrib.forms',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -110,3 +115,92 @@ CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^http://localhost:[0-9]+$",
     r"^http://127\.0\.0\.1:[0-9]+$",
 ]
+
+# Django Unfold Configuration
+UNFOLD = {
+    "SITE_TITLE": "TindAI Admin",
+    "SITE_HEADER": "TindAI Sari-Sari Store Management",
+    "SITE_SUBHEADER": "Store Administration & Inventory Control",
+    "SITE_SYMBOL": "storefront",
+    "THEME": "auto",
+    "COLORS": {
+        "primary": {
+            "50": "#ecfdf5",
+            "100": "#d1fae5",
+            "200": "#a7f3d0",
+            "300": "#6ee7b7",
+            "400": "#34d399",
+            "500": "#10b981",
+            "600": "#059669",
+            "700": "#047857",
+            "800": "#065f46",
+            "900": "#064e3b",
+            "950": "#022c22",
+        },
+    },
+    "SIDEBAR": {
+        "show_search": True,
+        "show_all_applications": False,
+        "navigation": [
+            {
+                "title": _("POS & Checkout"),
+                "separator": True,
+                "items": [
+                    {
+                        "title": _("Transactions"),
+                        "icon": "receipt_long",
+                        "link": reverse_lazy("admin:core_transaction_changelist"),
+                    },
+                ],
+            },
+            {
+                "title": _("Inventory Control"),
+                "separator": True,
+                "items": [
+                    {
+                        "title": _("Products"),
+                        "icon": "inventory_2",
+                        "link": reverse_lazy("admin:core_product_changelist"),
+                    },
+                    {
+                        "title": _("Restock Runs"),
+                        "icon": "local_shipping",
+                        "link": reverse_lazy("admin:core_restockrun_changelist"),
+                    },
+                ],
+            },
+            {
+                "title": _("Credit & Utang Ledger"),
+                "separator": True,
+                "items": [
+                    {
+                        "title": _("Customers"),
+                        "icon": "groups",
+                        "link": reverse_lazy("admin:core_customer_changelist"),
+                    },
+                    {
+                        "title": _("Utang Payments"),
+                        "icon": "payments",
+                        "link": reverse_lazy("admin:core_customerpayment_changelist"),
+                    },
+                ],
+            },
+            {
+                "title": _("Access & System"),
+                "separator": True,
+                "items": [
+                    {
+                        "title": _("Users"),
+                        "icon": "person",
+                        "link": reverse_lazy("admin:auth_user_changelist"),
+                    },
+                    {
+                        "title": _("Groups"),
+                        "icon": "shield",
+                        "link": reverse_lazy("admin:auth_group_changelist"),
+                    },
+                ],
+            },
+        ],
+    },
+}
