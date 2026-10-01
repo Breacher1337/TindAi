@@ -69,3 +69,6 @@ local_docs/
 *.doc
 
 
+docs/GIT_WORKFLOW.md
+docs/QUEST_BOARD.md
+docs/PROJECT_DOCUMENTATION.md
