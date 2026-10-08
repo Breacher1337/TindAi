@@ -51,42 +51,44 @@
       <span class="text-[10px] text-slate-500 font-semibold">Strict Liquidity Isolation</span>
     </div>
 
-    <!-- Physical Cash-on-Hand Card -->
-    <div class="bg-white border-2 border-emerald-500 rounded-2xl p-4 shadow-sm">
-      <div class="flex items-start justify-between">
-        <div>
-          <div class="flex items-center gap-1.5">
-            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-            <span class="text-xs font-black text-emerald-900 uppercase tracking-wide">Cash sa Kahon (Cash-on-Hand)</span>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <!-- Physical Cash-on-Hand Card -->
+      <div class="bg-white border-2 border-emerald-500 rounded-2xl p-4 shadow-sm">
+        <div class="flex items-start justify-between">
+          <div>
+            <div class="flex items-center gap-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+              <span class="text-xs font-black text-emerald-900 uppercase tracking-wide">Cash sa Kahon (Cash-on-Hand)</span>
+            </div>
+            <div class="text-2xl font-black text-slate-900 mt-1">₱{{ cash_on_hand }}</div>
           </div>
-          <div class="text-2xl font-black text-slate-900 mt-1">₱{{ cash_on_hand }}</div>
+          <span class="text-[10px] font-bold uppercase bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
+            Magagamit Pambili
+          </span>
         </div>
-        <span class="text-[10px] font-bold uppercase bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
-          Magagamit Pambili
-        </span>
+        <p class="text-[11px] text-slate-600 mt-2">
+          Tunay na pisikal na pera sa kaha: <strong>₱{{ cash_sales_total }}</strong> (benta) + <strong>₱{{ repayments_total }}</strong> (bayad utang).
+        </p>
       </div>
-      <p class="text-[11px] text-slate-600 mt-2">
-        Tunay na pisikal na pera sa kaha: <strong>₱{{ cash_sales_total }}</strong> (benta) + <strong>₱{{ repayments_total }}</strong> (bayad utang).
-      </p>
-    </div>
 
-    <!-- Uncollected Utang Card -->
-    <div class="bg-white border-2 border-amber-500 rounded-2xl p-4 shadow-sm">
-      <div class="flex items-start justify-between">
-        <div>
-          <div class="flex items-center gap-1.5">
-            <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
-            <span class="text-xs font-black text-amber-900 uppercase tracking-wide">Pautang na 'Di Pa Singil</span>
+      <!-- Uncollected Utang Card -->
+      <div class="bg-white border-2 border-amber-500 rounded-2xl p-4 shadow-sm">
+        <div class="flex items-start justify-between">
+          <div>
+            <div class="flex items-center gap-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+              <span class="text-xs font-black text-amber-900 uppercase tracking-wide">Pautang na 'Di Pa Singil</span>
+            </div>
+            <div class="text-2xl font-black text-slate-900 mt-1">₱{{ uncollected_utang }}</div>
           </div>
-          <div class="text-2xl font-black text-slate-900 mt-1">₱{{ uncollected_utang }}</div>
+          <span class="text-[10px] font-bold uppercase bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
+            Huwag Ibilang na Cash
+          </span>
         </div>
-        <span class="text-[10px] font-bold uppercase bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
-          Huwag Ibilang na Cash
-        </span>
+        <p class="text-[11px] text-slate-600 mt-2">
+          Nasa kamay pa ng suki ang halagang ito. Hindi puwedeng ipambayad sa Puregold hangga't 'di nasisingil.
+        </p>
       </div>
-      <p class="text-[11px] text-slate-600 mt-2">
-        Nasa kamay pa ng suki ang halagang ito. Hindi puwedeng ipambayad sa Puregold hangga't 'di nasisingil.
-      </p>
     </div>
   </div>
 
@@ -117,6 +119,143 @@
         <span class="text-[10px] font-bold text-slate-500 uppercase">Bilang ng Transaksyon</span>
         <div class="text-base font-black text-slate-900 mt-0.5">{{ total_transactions_count }}</div>
         <span class="text-[10px] text-slate-400">Naitalang benta</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Inventory Turnover Analytics Section -->
+  <div class="space-y-3 pt-2">
+    <div class="flex items-center justify-between px-1">
+      <h3 class="text-xs font-black text-slate-700 uppercase tracking-wider">Takbo ng Imbentaryo / Turnover Analytics</h3>
+      <span class="text-[10px] text-slate-500 font-semibold">Bilis ng Benta & Patay na Stock</span>
+    </div>
+
+    <!-- Summary Cards: Fast-Moving & Dead Stock Warning -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <!-- Fast-Moving Card -->
+      <div class="bg-white border-2 border-emerald-500 rounded-2xl p-4 shadow-sm">
+        <div class="flex items-start justify-between">
+          <div>
+            <div class="flex items-center gap-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+              <span class="text-xs font-black text-emerald-900 uppercase tracking-wide">Mabilis Mabenta</span>
+            </div>
+            <div class="text-2xl font-black text-slate-900 mt-1">{{ turnover.fast_moving_count }} <span class="text-xs font-bold text-slate-500 uppercase">SKU</span></div>
+          </div>
+          <span class="text-[10px] font-bold uppercase bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
+            High Velocity
+          </span>
+        </div>
+        <p class="text-[11px] text-slate-600 mt-2">
+          Mga produktong mabilis maubos at kailangang regular na i-restock para hindi maubusan.
+        </p>
+      </div>
+
+      <!-- Dead Stock Warning Card -->
+      <div class="bg-white border-2 border-rose-500 rounded-2xl p-4 shadow-sm">
+        <div class="flex items-start justify-between">
+          <div>
+            <div class="flex items-center gap-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
+              <span class="text-xs font-black text-rose-900 uppercase tracking-wide">Patay na Stock</span>
+            </div>
+            <div class="text-2xl font-black text-slate-900 mt-1">{{ turnover.dead_stock_count }} <span class="text-xs font-bold text-slate-500 uppercase">SKU</span></div>
+          </div>
+          <span class="text-[10px] font-bold uppercase bg-rose-100 text-rose-800 px-2 py-0.5 rounded-full">
+            Babala
+          </span>
+        </div>
+        <div class="mt-2 text-xs font-black text-rose-700 bg-rose-50 border border-rose-200 rounded-lg p-2">
+          ₱{{ turnover.dead_stock_tied_capital }} na nakatenggang puhunan
+        </div>
+        <p class="text-[11px] text-slate-600 mt-1.5">
+          Walang galaw sa nakalipas na 30 araw. Pag-isipang i-promo o huwag munang i-restock upang 'di maipit ang puhunan.
+        </p>
+      </div>
+    </div>
+
+    <!-- Tables Grid for Fast-Moving and Dead Stock SKUs -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-1">
+      <!-- Fast-Moving Items Table -->
+      <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+          <div class="flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+            <h4 class="text-xs font-black text-slate-800 uppercase tracking-wide">Mabilis Mabenta (Top SKUs)</h4>
+          </div>
+          <span class="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">{{ turnover.fast_moving_count }} SKU</span>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-left text-xs">
+            <thead>
+              <tr class="border-b border-slate-200 text-[10px] font-bold uppercase text-slate-500">
+                <th class="py-1.5 pr-2">SKU</th>
+                <th class="py-1.5 px-2">Pangalan</th>
+                <th class="py-1.5 px-2 text-right">7-Araw</th>
+                <th class="py-1.5 px-2 text-right">30-Araw</th>
+                <th class="py-1.5 pl-2 text-right">Kasalukuyang Stock</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              {% for item in turnover.fast_moving %}
+              <tr class="hover:bg-slate-50/50">
+                <td class="py-2 pr-2 font-mono text-[11px] font-bold text-slate-700">{{ item.sku }}</td>
+                <td class="py-2 px-2 font-semibold text-slate-900">{{ item.name }}</td>
+                <td class="py-2 px-2 text-right font-bold text-emerald-700">{{ item.sales_7d }}</td>
+                <td class="py-2 px-2 text-right font-bold text-emerald-800">{{ item.sales_30d }}</td>
+                <td class="py-2 pl-2 text-right font-mono font-bold text-slate-800">{{ item.current_stock }}</td>
+              </tr>
+              {% empty %}
+              <tr>
+                <td colspan="5" class="py-4 text-center text-xs text-slate-400 italic">
+                  Walang mabilis mabenta na produkto sa ngayon.
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Dead Stock Warning Table -->
+      <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+          <div class="flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-rose-500"></span>
+            <h4 class="text-xs font-black text-slate-800 uppercase tracking-wide">Patay na Stock (0 Benta sa 30 Araw)</h4>
+          </div>
+          <span class="text-[10px] font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full">{{ turnover.dead_stock_count }} SKU</span>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-left text-xs">
+            <thead>
+              <tr class="border-b border-slate-200 text-[10px] font-bold uppercase text-slate-500">
+                <th class="py-1.5 pr-2">SKU</th>
+                <th class="py-1.5 px-2">Pangalan</th>
+                <th class="py-1.5 px-2 text-right">Stock</th>
+                <th class="py-1.5 pl-2 text-right">Halaga ng Puhunan</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              {% for item in turnover.dead_stock %}
+              <tr class="hover:bg-slate-50/50">
+                <td class="py-2 pr-2 font-mono text-[11px] font-bold text-slate-700">{{ item.sku }}</td>
+                <td class="py-2 px-2 font-semibold text-slate-900">{{ item.name }}</td>
+                <td class="py-2 px-2 text-right font-mono font-bold text-slate-800">{{ item.current_stock }}</td>
+                <td class="py-2 pl-2 text-right font-mono font-bold text-rose-700">₱{{ item.stock_value }}</td>
+              </tr>
+              {% empty %}
+              <tr>
+                <td colspan="4" class="py-4 text-center text-xs text-slate-400 italic">
+                  Walang patay na stock! Maganda ang takbo ng paninda.
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>

@@ -76,3 +76,8 @@ docs/PROJECT_DOCUMENTATION.md
 scratch/
 *.docx
 *.pdf
+
+receipts/
+artifacts/
+.agents/
+

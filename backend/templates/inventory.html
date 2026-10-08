@@ -75,7 +75,7 @@
   </div>
 
   <!-- Product List -->
-  <div id="product-list" class="space-y-2">
+  <div id="product-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5">
     {% for product in products %}
     <div class="bg-white border rounded-xl p-3 shadow-sm flex items-center justify-between transition-all {% if product.stock_quantity <= 0 %}border-rose-400 bg-rose-50/40{% elif product.stock_quantity <= product.reorder_point %}border-amber-300 bg-amber-50/30{% else %}border-slate-200{% endif %}">
       <div class="flex-1 pr-2">
@@ -108,7 +108,7 @@
       </div>
     </div>
     {% empty %}
-    <div class="p-8 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-xl">
+    <div class="col-span-full p-8 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-xl">
       <i data-lucide="package-search" class="w-8 h-8 mx-auto text-slate-300 mb-2"></i>
       <p class="text-sm font-semibold text-slate-600">Walang nahanap na produkto.</p>
       <p class="text-xs text-slate-400 mt-1">Subukang baguhin ang salitang hinahanap o tanggalin ang filter.</p>

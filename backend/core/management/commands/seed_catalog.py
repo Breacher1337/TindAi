@@ -64,7 +64,7 @@ class Command(BaseCommand):
                     'category': item.get('category', 'General'),
                     'wholesale_cost': Decimal(str(item.get('wholesale_cost', 0))),
                     'retail_price': Decimal(str(item.get('retail_price', 0))),
-                    'stock_quantity': item.get('stock_quantity', item.get('current_stock', 20)),
+                    'stock_quantity': Decimal(str(item.get('stock_quantity', item.get('current_stock', 20)))),
                     'reorder_point': item.get('reorder_point', 10),
                     'pack_unit': item.get('pack_unit', 'pack'),
                     'tingi_unit': item.get('tingi_unit', 'piece'),
@@ -72,6 +72,24 @@ class Command(BaseCommand):
                     'is_active': True,
                 }
             )
+
+            # Ensure initial InventoryBatch and StockMovement exist for FIFO depletion
+            if product.stock_quantity > Decimal('0.0000') and not product.batches.exists():
+                from core.models import InventoryBatch, StockMovement
+                InventoryBatch.objects.create(
+                    product=product,
+                    initial_tingi_quantity=product.stock_quantity,
+                    remaining_tingi_quantity=product.stock_quantity,
+                    unit_cost_basis=product.wholesale_cost,
+                )
+                StockMovement.objects.create(
+                    product=product,
+                    movement_type=StockMovement.MOVEMENT_AUDIT_ADJUSTMENT,
+                    quantity_change=product.stock_quantity,
+                    balance_after=product.stock_quantity,
+                    reference_id="SEED_CATALOG"
+                )
+
             if created:
                 created_count += 1
             else:

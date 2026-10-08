@@ -1,0 +1,205 @@
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: 1.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-10-01 12:00+0000\n"
+"PO-Revision-Date: 2026-10-01 12:00+0000\n"
+"Last-Translator: TindAI Team\n"
+"Language-Team: Filipino\n"
+"Language: tl\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Total"
+msgstr "Kabuuan"
+
+msgid "Total:"
+msgstr "Kabuuan:"
+
+msgid "Subtotal"
+msgstr "Subtotal"
+
+msgid "Current Cart"
+msgstr "Kasalukuyang Cart"
+
+msgid "Your cart is empty."
+msgstr "Walang laman ang cart."
+
+msgid "Clear Cart"
+msgstr "Burahin ang Cart"
+
+msgid "Confirm Sale"
+msgstr "Kumpirmahin ang Benta"
+
+msgid "Payment Method:"
+msgstr "Paraan ng Bayad:"
+
+msgid "Cash"
+msgstr "Bayad Cash"
+
+msgid "Credit (Utang)"
+msgstr "Ilista (Utang)"
+
+msgid "Customer Payment (₱):"
+msgstr "Bayad ng Customer (₱):"
+
+msgid "Change:"
+msgstr "Sukli:"
+
+msgid "Exact"
+msgstr "Sakto"
+
+msgid "Items"
+msgstr "Paninda"
+
+msgid "Quantity & Price"
+msgstr "Dami at Halaga"
+
+msgid "Camera Counter Scan"
+msgstr "Camera Counter Scan"
+
+msgid "Snap photo of goods on the table"
+msgstr "Kunan ng litrato ang mga paninda sa lamesa"
+
+msgid "Take Photo"
+msgstr "Kumuha"
+
+msgid "Quick Tingi (1-Tap):"
+msgstr "Mabilisang Tingi (1-Tap):"
+
+msgid "Tap to add"
+msgstr "Pindutin para idagdag"
+
+msgid "Choose from full list (50 SKUs)..."
+msgstr "Pumili mula sa buong listahan (50 SKUs)..."
+
+msgid "Add"
+msgstr "Idagdag"
+
+msgid "Debtor name to charge:"
+msgstr "Pangalan ng Suki na Maglilista:"
+
+msgid "Choose a suki..."
+msgstr "Pumili ng suki..."
+
+msgid "Store Settings"
+msgstr "Mga Setting ng Tindahan"
+
+msgid "Settings"
+msgstr "Mga Setting"
+
+msgid "Store Configuration"
+msgstr "Konpigurasyon ng Tindahan"
+
+msgid "Store Name"
+msgstr "Pangalan ng Tindahan"
+
+msgid "Caretaker Identity"
+msgstr "Tagapangalaga"
+
+msgid "Default Retail Markup Percentage"
+msgstr "Porsyento ng Karaniwang Patong"
+
+msgid "Save Changes"
+msgstr "I-save ang mga Pagbabago"
+
+msgid "Admin"
+msgstr "Admin"
+
+msgid "POS"
+msgstr "POS"
+
+msgid "Benta"
+msgstr "Benta"
+
+msgid "Stocks"
+msgstr "Stocks"
+
+msgid "Tira"
+msgstr "Tira"
+
+msgid "Ledger"
+msgstr "Ledger"
+
+msgid "Utang"
+msgstr "Utang"
+
+msgid "Restock"
+msgstr "Restock"
+
+msgid "Bili"
+msgstr "Bili"
+
+msgid "Analytics"
+msgstr "Analytics"
+
+msgid "Tubo"
+msgstr "Tubo"
+
+msgid "English"
+msgstr "Ingles"
+
+msgid "Filipino"
+msgstr "Filipino"
+
+msgid "Language"
+msgstr "Wika"
+
+msgid "Record to Utang"
+msgstr "Ilista sa Utang"
+
+msgid "Short by"
+msgstr "Kulang pa ng"
+
+msgid "e.g. 50"
+msgstr "Hal. 50"
+
+msgid "Store configuration successfully updated."
+msgstr "Matagumpay na na-update ang configuration ng tindahan."
+
+msgid "Store name cannot be empty."
+msgstr "Hindi maaaring walang laman ang pangalan ng tindahan."
+
+msgid "Store name cannot exceed 255 characters."
+msgstr "Hindi maaaring lumagpas sa 255 titik ang pangalan ng tindahan."
+
+msgid "Caretaker identity cannot be empty."
+msgstr "Hindi maaaring walang laman ang pagkakakilanlan ng tagapangalaga."
+
+msgid "Caretaker identity cannot exceed 255 characters."
+msgstr "Hindi maaaring lumagpas sa 255 titik ang pagkakakilanlan ng tagapangalaga."
+
+msgid "Retail markup percentage must be between 0.00% and 999.99%."
+msgstr "Ang porsyento ng patong ay dapat nasa pagitan ng 0.00% at 999.99%."
+
+msgid "Invalid markup percentage value."
+msgstr "Hindi wastong halaga ng porsyento ng patong."
+
+msgid "The total amount will be recorded to the chosen suki's ledger."
+msgstr "Dadalhin ang kabuuang halaga sa talaan ng napiling suki."
+
+msgid "Tap a tingi item above or snap a photo of the counter."
+msgstr "Pumindot ng tingi sa itaas o kumuha ng litrato ng counter."
+
+msgid "Admin View"
+msgstr "Tingnan sa Admin"
+
+msgid "Validation Errors:"
+msgstr "Mga Error sa Pagpapatunay:"
+
+msgid "The official public name of your retail sari-sari establishment."
+msgstr "Ang opisyal na pampublikong pangalan ng inyong sari-sari store."
+
+msgid "Active tindero, tindera, or cashier on duty."
+msgstr "Aktibong tindero, tindera, o kahera sa tindahan."
+
+msgid "Suggested profit markup applied over wholesale replenishment unit cost."
+msgstr "Mungkahing patong na tubo sa bawat yunit ng bilihin mula sa bodega."
+
+msgid "Store identity, caretaker profile, and pricing markups."
+msgstr "Pagkakakilanlan ng tindahan, profile ng tagapangalaga, at patong sa presyo."
+
+msgid "Cancel"
+msgstr "Kanselahin"

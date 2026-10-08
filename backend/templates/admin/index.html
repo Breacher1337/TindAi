@@ -1,0 +1,52 @@
+{% extends 'admin/base.html' %}
+{% load i18n %}
+
+{% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block branding %}
+    {% include "unfold/helpers/site_branding.html" %}
+{% endblock %}
+
+{% block content %}
+    <!-- Custom TindAI Store Performance Metrics Dashboard -->
+    <div class="mb-8" id="tindai-kpi-dashboard">
+        <div class="mb-4">
+            <h2 class="text-base font-bold text-gray-900 dark:text-white uppercase tracking-wider">Store Performance Overview</h2>
+            <p class="text-xs text-gray-500 dark:text-gray-400">Real-time operational indicators for retail management</p>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {% for metric in kpi_metrics %}
+            <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 shadow-xs flex flex-col justify-between" id="metric-widget-{{ metric.title|slugify }}">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ metric.title }}</span>
+                    {% if metric.icon %}
+                    <span class="material-symbols-outlined text-gray-400 dark:text-gray-500 text-xl">{{ metric.icon }}</span>
+                    {% endif %}
+                </div>
+                <div class="mt-3">
+                    <div class="text-2xl font-black text-gray-900 dark:text-white">{{ metric.value }}</div>
+                    {% if metric.description %}
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ metric.description }}</p>
+                    {% endif %}
+                </div>
+            </div>
+            {% empty %}
+            <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 shadow-xs" id="metric-widget-daily-revenue">
+                <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Daily Revenue</span>
+                <div class="text-2xl font-black text-gray-900 dark:text-white mt-3">{{ daily_revenue|default:"₱0.00" }}</div>
+            </div>
+            <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 shadow-xs" id="metric-widget-utang-balances">
+                <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Utang Balances</span>
+                <div class="text-2xl font-black text-gray-900 dark:text-white mt-3">{{ utang_balances|default:"₱0.00" }}</div>
+            </div>
+            <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 shadow-xs" id="metric-widget-low-stock">
+                <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Low Stock</span>
+                <div class="text-2xl font-black text-gray-900 dark:text-white mt-3">{{ low_stock_count|default:"0" }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Default Unfold App List & Recent Actions History -->
+    {% include "unfold/helpers/dashboard_default.html" %}
+{% endblock %}

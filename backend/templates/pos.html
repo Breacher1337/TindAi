@@ -1,74 +1,100 @@
 {% extends "base.html" %}
+{% load i18n %}
 
-{% block title %}Benta (POS) - TindAI{% endblock %}
+{% block title %}{% trans "POS" %} - TindAI{% endblock %}
 
 {% block content %}
-<div class="space-y-4">
-
-  <!-- Camera Snapshot Action Bar -->
-  <div class="bg-gradient-to-r from-emerald-800 to-teal-800 rounded-2xl p-3.5 text-white shadow-md">
-    <div class="flex items-center justify-between">
-      <div>
-        <h2 class="font-black text-base tracking-tight">Camera Counter Scan</h2>
-        <p class="text-xs text-emerald-200">Kunan ng litrato ang mga paninda sa lamesa</p>
-      </div>
-      <label class="cursor-pointer bg-white hover:bg-emerald-50 text-emerald-900 font-black px-3.5 py-2.5 rounded-xl shadow-md text-xs uppercase tracking-wider flex items-center gap-1.5 active:scale-95 transition">
-        <i data-lucide="camera" class="w-4 h-4 text-emerald-700"></i>
-        <span>Kumuha</span>
-        <input type="file" accept="image/*" capture="environment" class="hidden" onchange="alert('Paparating na ang Gemini Flash multimodal counter scan sa Phase 2!')">
-      </label>
-    </div>
+<!-- Offline Status Banner -->
+<div id="offline-status-banner" class="hidden bg-amber-500 text-slate-900 font-extrabold text-xs px-4 py-3 rounded-2xl shadow-md flex items-center justify-between mb-4 border border-amber-600 transition-all duration-200">
+  <div class="flex items-center gap-2">
+    <i data-lucide="wifi-off" class="w-4 h-4 text-slate-900"></i>
+    <span id="offline-status-text">Offline Mode - Naka-save sa Phone</span>
   </div>
+  <span class="text-[10px] uppercase tracking-wider bg-slate-900/15 px-2 py-0.5 rounded font-black">Lokal</span>
+</div>
 
-  <!-- Tingi Quick-Add Grid (3x3 on mobile) -->
-  <div>
-    <div class="flex items-center justify-between mb-2">
-      <h3 class="text-xs font-black text-slate-500 uppercase tracking-wider">Mabilisang Tingi (1-Tap):</h3>
-      <span class="text-[11px] text-slate-400">Pindutin para idagdag</span>
-    </div>
-    <div class="grid grid-cols-3 gap-2">
-      {% for product in tingi_products %}
-      <button hx-post="/cart/add/{{ product.id }}/" hx-target="#cart-container"
-              class="bg-white border rounded-xl p-2.5 text-left shadow-sm active:scale-95 transition flex flex-col justify-between min-h-[68px] touch-target hover:border-emerald-500 {% if product.stock_quantity <= 0 %}opacity-40 border-rose-300 pointer-events-none{% elif product.stock_quantity <= product.reorder_point %}border-amber-300{% else %}border-slate-200{% endif %}">
-        <span class="text-xs font-bold text-slate-800 line-clamp-2 leading-tight">{{ product.name }}</span>
-        <div class="flex items-center justify-between mt-1 pt-1 border-t border-slate-100">
-          <span class="text-xs font-black text-emerald-700">₱{{ product.retail_price }}</span>
-          <span class="text-[9px] font-semibold {% if product.stock_quantity <= product.reorder_point %}text-amber-600{% else %}text-slate-400{% endif %}">
-            {{ product.stock_quantity }}{{ product.tingi_unit|slice:":1" }}
-          </span>
+<!-- Reconnection Sync Toast Notification -->
+<div id="sync-toast-notification" class="hidden bg-emerald-700 text-white font-extrabold text-xs px-4 py-3 rounded-2xl shadow-lg flex items-center justify-between mb-4 border border-emerald-800 transition-all duration-200">
+  <div class="flex items-center gap-2">
+    <i data-lucide="check-circle" class="w-4 h-4 text-white"></i>
+    <span id="sync-toast-text">Online na ulit! Nai-sync na ang mga offline transaction sa server.</span>
+  </div>
+  <button type="button" onclick="document.getElementById('sync-toast-notification').classList.add('hidden')" class="text-white hover:text-emerald-200 text-xs font-bold px-1.5 py-0.5">✕</button>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start" id="pos-split-layout">
+
+  <!-- Left Column: Product Selection & Catalog (Desktop: 7 cols) -->
+  <div class="lg:col-span-7 xl:col-span-7 space-y-4" id="pos-catalog-column">
+
+    <!-- Camera Snapshot Action Bar -->
+    <div class="bg-gradient-to-r from-emerald-800 to-teal-800 rounded-2xl p-4 text-white shadow-md">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="font-black text-base tracking-tight">{% trans "Camera Counter Scan" %}</h2>
+          <p class="text-xs text-emerald-200">{% trans "Snap photo of goods on the table" %}</p>
         </div>
-      </button>
-      {% empty %}
-      <div class="col-span-3 text-xs text-slate-400 py-3 text-center bg-white border border-dashed rounded-xl">
-        Maglagay ng produkto sa database gamit ang seed catalog.
+        <label class="cursor-pointer bg-white hover:bg-emerald-50 text-emerald-900 font-black px-3.5 py-2.5 rounded-xl shadow-md text-xs uppercase tracking-wider flex items-center gap-1.5 active:scale-95 transition">
+          <i data-lucide="camera" class="w-4 h-4 text-emerald-700"></i>
+          <span>{% trans "Take Photo" %}</span>
+          <input type="file" accept="image/*" capture="environment" class="hidden" onchange="alert('Paparating na ang Gemini Flash multimodal counter scan sa Phase 2!')">
+        </label>
       </div>
-      {% endfor %}
     </div>
-  </div>
 
-  <!-- Manual Item Search Dropdown -->
-  <div>
-    <form hx-post="/cart/add-by-id/" hx-target="#cart-container" class="flex gap-2">
-      <div class="relative flex-1">
-        <select name="product_id" required
-                class="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm bg-white font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-600 appearance-none">
-          <option value="">Pumili mula sa buong listahan (50 SKUs)...</option>
-          {% for p in all_products %}
-            <option value="{{ p.id }}">{{ p.name }} - ₱{{ p.retail_price }} (May {{ p.stock_quantity }} {{ p.tingi_unit }})</option>
-          {% endfor %}
-        </select>
-        <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 absolute right-3 top-3.5 pointer-events-none"></i>
+    <!-- Tingi Quick-Add Grid -->
+    <div id="pos-product-grid-section">
+      <div class="flex items-center justify-between mb-2">
+        <h3 class="text-xs font-black text-slate-500 uppercase tracking-wider">{% trans "Quick Tingi (1-Tap):" %}</h3>
+        <span class="text-[11px] text-slate-400">{% trans "Tap to add" %}</span>
       </div>
-      <button type="submit" class="bg-slate-900 hover:bg-slate-800 text-white font-extrabold px-4 py-2.5 rounded-xl text-xs uppercase tracking-wide active:scale-95 shadow-sm">
-        Idagdag
-      </button>
-    </form>
+      <div class="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-3 gap-2.5" id="pos-product-grid">
+        {% for product in tingi_products %}
+        <button hx-post="/cart/add/{{ product.id }}/" hx-target="#cart-container" hx-swap="outerHTML"
+                id="tingi-btn-{{ product.id }}"
+                class="bg-white border rounded-xl p-2.5 text-left shadow-sm active:scale-95 transition flex flex-col justify-between min-h-[72px] touch-target hover:border-emerald-500 {% if product.stock_quantity <= 0 %}opacity-40 border-rose-300 pointer-events-none{% elif product.stock_quantity <= product.reorder_point %}border-amber-300{% else %}border-slate-200{% endif %}">
+          <span class="text-xs font-bold text-slate-800 line-clamp-2 leading-tight">{{ product.name }}</span>
+          <div class="flex items-center justify-between mt-1 pt-1 border-t border-slate-100">
+            <span class="text-xs font-black text-emerald-700">₱{{ product.retail_price }}</span>
+            <span class="text-[9px] font-semibold {% if product.stock_quantity <= product.reorder_point %}text-amber-600{% else %}text-slate-400{% endif %}">
+              {{ product.stock_quantity }}{{ product.tingi_unit|slice:":1" }}
+            </span>
+          </div>
+        </button>
+        {% empty %}
+        <div class="col-span-3 text-xs text-slate-400 py-4 text-center bg-white border border-dashed rounded-xl">
+          Maglagay ng produkto sa database gamit ang seed catalog.
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Manual Item Search Dropdown -->
+    <div class="bg-white border border-slate-200 rounded-2xl p-3 shadow-xs">
+      <form hx-post="/cart/add-by-id/" hx-target="#cart-container" hx-swap="outerHTML" class="flex gap-2">
+        <div class="relative flex-1">
+          <select name="product_id" id="product-dropdown-select" required
+                  class="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm bg-white font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-600 appearance-none">
+            <option value="">{% trans "Choose from full list (50 SKUs)..." %}</option>
+            {% for p in all_products %}
+              <option value="{{ p.id }}">{{ p.name }} - ₱{{ p.retail_price }} (May {{ p.stock_quantity }} {{ p.tingi_unit }})</option>
+            {% endfor %}
+          </select>
+          <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 absolute right-3 top-3.5 pointer-events-none"></i>
+        </div>
+        <button type="submit" id="add-dropdown-item-btn"
+                class="bg-slate-900 hover:bg-slate-800 text-white font-extrabold px-4 py-2.5 rounded-xl text-xs uppercase tracking-wide active:scale-95 shadow-sm">
+          {% trans "Add" %}
+        </button>
+      </form>
+    </div>
+
   </div>
 
-  <!-- Cart Section -->
-  <div>
-    <div class="flex items-center justify-between mb-2">
-      <h3 class="text-xs font-black text-slate-500 uppercase tracking-wider">Kasalukuyang Cart</h3>
+  <!-- Right Column: Cart & Settlement (Desktop: 5 cols, Sticky) -->
+  <div class="lg:col-span-5 xl:col-span-5 space-y-3 lg:sticky lg:top-20" id="pos-cart-column">
+    <div class="flex items-center justify-between mb-1">
+      <h3 class="text-xs font-black text-slate-500 uppercase tracking-wider">{% trans "Current Cart" %}</h3>
     </div>
     {% include "partials/cart.html" %}
   </div>
@@ -80,22 +106,26 @@
     const el = document.getElementById('customer-select-block');
     const cashBlock = document.getElementById('cash-tender-block');
     const submitBtn = document.getElementById('checkout-submit-btn');
+    const spanCash = document.getElementById('btn-text-cash');
+    const spanUtang = document.getElementById('btn-text-utang');
 
     if (show) {
       if (el) el.classList.remove('hidden');
       if (cashBlock) cashBlock.classList.add('hidden');
+      if (spanCash) spanCash.classList.add('hidden');
+      if (spanUtang) spanUtang.classList.remove('hidden');
       if (submitBtn) {
         submitBtn.classList.remove('bg-emerald-700', 'hover:bg-emerald-800');
         submitBtn.classList.add('bg-amber-600', 'hover:bg-amber-700');
-        submitBtn.innerText = 'Ilista sa Utang';
       }
     } else {
       if (el) el.classList.add('hidden');
       if (cashBlock) cashBlock.classList.remove('hidden');
+      if (spanCash) spanCash.classList.remove('hidden');
+      if (spanUtang) spanUtang.classList.add('hidden');
       if (submitBtn) {
         submitBtn.classList.remove('bg-amber-600', 'hover:bg-amber-700');
         submitBtn.classList.add('bg-emerald-700', 'hover:bg-emerald-800');
-        updateCheckoutButtonText();
       }
     }
   }
@@ -106,7 +136,7 @@
     const sukliDisplay = document.getElementById('sukli-display');
     const sukliContainer = document.getElementById('sukli-container');
 
-    if (!totalEl || !tenderEl || !sukliDisplay) return;
+    if (!totalEl || !tenderEl || !sukliDisplay || !sukliContainer) return;
 
     const total = parseFloat(totalEl.value) || 0;
     const tender = parseFloat(tenderEl.value) || 0;
@@ -115,9 +145,9 @@
       sukliContainer.classList.remove('hidden');
       const diff = tender - total;
       if (diff >= 0) {
-        sukliDisplay.innerHTML = `<span class="text-emerald-700 font-black">Sukli: ₱${diff.toFixed(2)}</span>`;
+        sukliDisplay.innerHTML = `<span class="text-emerald-700 font-black">{% trans "Change:" %} ₱${diff.toFixed(2)}</span>`;
       } else {
-        sukliDisplay.innerHTML = `<span class="text-rose-600 font-bold">Kulang pa ng ₱${Math.abs(diff).toFixed(2)}</span>`;
+        sukliDisplay.innerHTML = `<span class="text-rose-600 font-bold">{% trans "Short by" %} ₱${Math.abs(diff).toFixed(2)}</span>`;
       }
     } else {
       sukliContainer.classList.add('hidden');
@@ -128,23 +158,124 @@
     const input = document.getElementById('cash-tender-input');
     if (val === 'exact') {
       const totalEl = document.getElementById('cart-total-value');
-      if (totalEl) input.value = totalEl.value;
+      if (totalEl && input) input.value = totalEl.value;
     } else {
-      input.value = val;
+      if (input) input.value = val;
     }
     calculateSukli();
-  }
-
-  function updateCheckoutButtonText() {
-    const totalEl = document.getElementById('cart-total-value');
-    const submitBtn = document.getElementById('checkout-submit-btn');
-    if (totalEl && submitBtn) {
-      submitBtn.innerText = `Kumpirmahin ang Benta (₱${totalEl.value})`;
-    }
   }
 
   if (window.lucide) {
     lucide.createIcons();
   }
+
+  // Network Status and Offline Mode Handlers
+  function updatePOSNetworkStatus() {
+    const banner = document.getElementById('offline-status-banner');
+    if (!banner) return;
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      banner.classList.remove('hidden');
+    } else {
+      banner.classList.add('hidden');
+    }
+  }
+
+  window.addEventListener('online', function() {
+    updatePOSNetworkStatus();
+    if (window.TindAIOfflineStore) {
+      window.TindAIOfflineStore.syncOfflineTransactions();
+    }
+  });
+
+  window.addEventListener('offline', function() {
+    updatePOSNetworkStatus();
+    const toast = document.getElementById('sync-toast-notification');
+    if (toast) toast.classList.add('hidden');
+  });
+
+  window.addEventListener('tindai:offline_synced', function(event) {
+    const toast = document.getElementById('sync-toast-notification');
+    if (toast) {
+      toast.classList.remove('hidden');
+      setTimeout(function() {
+        toast.classList.add('hidden');
+      }, 6000);
+    }
+  });
+
+  // Offline checkout form interception
+  document.addEventListener('submit', async function(evt) {
+    const form = evt.target;
+    if (form && (form.id === 'checkout-form' || form.getAttribute('action') === '/checkout/')) {
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        evt.preventDefault();
+        evt.stopPropagation();
+
+        const itemRows = document.querySelectorAll('.cart-item-row');
+        const items = [];
+        itemRows.forEach(function(row) {
+          const id = row.getAttribute('data-id');
+          const name = row.getAttribute('data-name');
+          const price = parseFloat(row.getAttribute('data-price') || 0);
+          const qty = parseFloat(row.getAttribute('data-qty') || 1);
+          if (id) {
+            items.push({
+              product_id: id,
+              name: name,
+              unit_price: price,
+              quantity: qty
+            });
+          }
+        });
+
+        if (!items.length) {
+          alert('Walang laman ang cart!');
+          return;
+        }
+
+        const paymentMethodInput = form.querySelector('input[name="payment_method"]:checked');
+        const paymentMethod = paymentMethodInput ? paymentMethodInput.value : 'CASH';
+        const customerSelect = document.getElementById('customer_id');
+        const customerId = (paymentMethod === 'UTANG' && customerSelect) ? customerSelect.value : null;
+        const totalEl = document.getElementById('cart-total-value');
+        const totalAmount = totalEl ? totalEl.value : '0.00';
+
+        const tx = {
+          id: (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
+                ? crypto.randomUUID()
+                : (window.TindAIOfflineStore ? window.TindAIOfflineStore.generateUUID() : 'offline-' + Date.now()),
+          transaction_type: paymentMethod,
+          items: items,
+          customer_id: customerId || null,
+          total_amount: totalAmount,
+          sync_status: 'PENDING_OFFLINE',
+          timestamp: new Date().toISOString(),
+          notes: 'Offline POS checkout (' + paymentMethod + ')'
+        };
+
+        if (window.TindAIOfflineStore) {
+          await window.TindAIOfflineStore.saveOfflineTransaction(tx);
+        }
+
+        // Empty Cart UI
+        const cartContainer = document.getElementById('cart-container');
+        if (cartContainer) {
+          cartContainer.innerHTML = `
+            <div class="border-2 border-dashed border-emerald-400 bg-emerald-50 rounded-2xl p-6 text-center space-y-2">
+              <i data-lucide="check-circle" class="w-8 h-8 mx-auto text-emerald-600 mb-1"></i>
+              <p class="text-sm font-black text-emerald-900">Naka-save sa Phone!</p>
+              <p class="text-xs text-emerald-700">Lokal na na-record ang benta (₱${totalAmount}). Awtomatikong ise-send sa server pagbalik ng internet.</p>
+            </div>
+          `;
+          if (window.lucide) {
+            window.lucide.createIcons();
+          }
+        }
+      }
+    }
+  }, true);
+
+  updatePOSNetworkStatus();
+  document.addEventListener('DOMContentLoaded', updatePOSNetworkStatus);
 </script>
 {% endblock %}

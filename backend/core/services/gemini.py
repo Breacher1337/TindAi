@@ -207,41 +207,66 @@ def _fallback_counter_detect(prompt_hint: Optional[str] = None) -> CounterDetect
     )
 
 
-def _fallback_receipt_ocr(wholesaler_hint: Optional[str] = None) -> ReceiptOcrOut:
+def _fallback_receipt_ocr(
+    wholesaler_hint: Optional[str] = None,
+    raw_lines: Optional[List[str]] = None,
+) -> ReceiptOcrOut:
     """Provide a reliable fallback ReceiptOcrOut when Gemini API is unavailable."""
+    from core.services.fuzzy_matcher import fuzzy_match_sku, parse_receipt_line_metadata
+
     wholesaler = wholesaler_hint if wholesaler_hint else "Puregold Price Club Inc."
-    items = [
-        ParsedReceiptItem(
-            raw_line_text="LKY ME PC KLM 72S",
-            matched_sku="FMCG-NDL-001",
-            matched_name="Lucky Me! Pancit Canton Kalamansi (Box 72s)",
-            qty_packs=1,
-            pack_wholesale_cost=Decimal("900.00"),
-            line_total=Decimal("900.00"),
-            confidence=0.95,
-            suggested_retail_price=Decimal("15.00"),
-        ),
-        ParsedReceiptItem(
-            raw_line_text="GT WHT COF 10X30G",
-            matched_sku="FMCG-COF-001",
-            matched_name="Great Taste White 3in1 Bundle (10s)",
-            qty_packs=2,
-            pack_wholesale_cost=Decimal("98.00"),
-            line_total=Decimal("196.00"),
-            confidence=0.92,
-            suggested_retail_price=Decimal("12.00"),
-        ),
-        ParsedReceiptItem(
-            raw_line_text="555 SARD TOM 50S",
-            matched_sku="FMCG-CAN-001",
-            matched_name="555 Sardines in Tomato Sauce Case (50s)",
-            qty_packs=1,
-            pack_wholesale_cost=Decimal("1100.00"),
-            line_total=Decimal("1100.00"),
-            confidence=0.94,
-            suggested_retail_price=Decimal("26.00"),
-        ),
+    sample_lines = raw_lines if raw_lines else [
+        "LKY ME PC KLM 72S @ 900.00",
+        "GT WHT COF 10X30G @ 98.00",
+        "555 SARD TOM 50S @ 1100.00",
     ]
+
+    items: List[ParsedReceiptItem] = []
+    for line in sample_lines:
+        qty, price, clean_text = parse_receipt_line_metadata(line)
+        wholesale_cost = price if price is not None else Decimal("100.00")
+        line_total = wholesale_cost * Decimal(str(qty))
+
+        match = fuzzy_match_sku(clean_text)
+        if match and match["score"] >= 80.0:
+            matched_sku = match["matched_sku"]
+            matched_name = match["matched_name"]
+            confidence = match["confidence"]
+            suggested_rp = match["retail_price"] if match["retail_price"] else round(wholesale_cost * Decimal("1.15"), 2)
+        else:
+            matched_sku = None
+            matched_name = clean_text or "General Wholesale Item"
+            confidence = 0.50
+            suggested_rp = round(wholesale_cost * Decimal("1.15"), 2)
+
+        items.append(
+            ParsedReceiptItem(
+                raw_line_text=line,
+                matched_sku=matched_sku,
+                matched_name=matched_name,
+                qty_packs=qty,
+                pack_wholesale_cost=wholesale_cost,
+                line_total=line_total,
+                confidence=confidence,
+                suggested_retail_price=Decimal(str(suggested_rp)),
+            )
+        )
+
+    # Ensure backward compatibility fallback items if sample_lines was empty
+    if not items:
+        items = [
+            ParsedReceiptItem(
+                raw_line_text="LKY ME PC KLM 72S",
+                matched_sku="FMCG-NDL-001",
+                matched_name="Lucky Me! Pancit Canton Kalamansi (Box 72s)",
+                qty_packs=1,
+                pack_wholesale_cost=Decimal("900.00"),
+                line_total=Decimal("900.00"),
+                confidence=0.95,
+                suggested_retail_price=Decimal("15.00"),
+            ),
+        ]
+
     total_amount = sum(it.line_total for it in items)
     return ReceiptOcrOut(
         wholesaler_name=wholesaler,
@@ -332,16 +357,74 @@ Return structured JSON adhering strictly to the schema."""
 def ocr_receipt(
     image_base64: Optional[str] = None,
     wholesaler_hint: Optional[str] = None,
+    raw_lines: Optional[List[str]] = None,
+    raw_text: Optional[str] = None,
 ) -> ReceiptOcrOut:
-    """Perform wholesale receipt OCR using Google Gemini Flash.
+    """Perform wholesale receipt OCR using Google Gemini Flash and Local Fuzzy SKU Matching.
 
     Extracts line items, wholesale pack costs, invoice total, computes
     suggested retail price applying 15% markup, and returns validated
-    ReceiptOcrOut with graceful fallback on failure.
+    ReceiptOcrOut. Resolves lines with local fuzzy matcher before falling
+    back to Gemini LLM.
     """
+    from datetime import date as dt_date
+    from core.services.fuzzy_matcher import fuzzy_match_sku, parse_receipt_line_metadata
+
+    lines = list(raw_lines) if raw_lines else []
+    if not lines and raw_text:
+        lines = [line.strip() for line in raw_text.splitlines() if line.strip()]
+
+    # If raw lines are provided without an image (or if image is dummy/invalid),
+    # resolve line items directly via local fuzzy matching before invoking Gemini
+    if lines and not prepare_image_part(image_base64):
+        parsed_items: List[ParsedReceiptItem] = []
+        for line in lines:
+            qty, price, clean_text = parse_receipt_line_metadata(line)
+            wholesale_cost = price if price is not None else Decimal("100.00")
+            line_tot = wholesale_cost * Decimal(str(qty))
+
+            match = fuzzy_match_sku(clean_text)
+            if match and match["score"] >= 80.0:
+                matched_sku = match["matched_sku"]
+                matched_name = match["matched_name"]
+                conf = match["confidence"]
+                suggested_rp = (
+                    match["retail_price"]
+                    if match["retail_price"]
+                    else round(wholesale_cost * Decimal("1.15"), 2)
+                )
+            else:
+                matched_sku = None
+                matched_name = clean_text or line
+                conf = round(match["score"] / 100.0, 4) if match else 0.40
+                suggested_rp = round(wholesale_cost * Decimal("1.15"), 2)
+
+            parsed_items.append(
+                ParsedReceiptItem(
+                    raw_line_text=line,
+                    matched_sku=matched_sku,
+                    matched_name=matched_name,
+                    qty_packs=qty,
+                    pack_wholesale_cost=wholesale_cost,
+                    line_total=line_tot,
+                    confidence=conf,
+                    suggested_retail_price=Decimal(str(suggested_rp)),
+                )
+            )
+
+        if parsed_items:
+            tot = sum(it.line_total for it in parsed_items)
+            return ReceiptOcrOut(
+                wholesaler_name=wholesaler_hint or "Puregold Price Club Inc.",
+                invoice_no=f"INV-{dt_date.today().strftime('%Y%m%d')}-8812",
+                date=dt_date.today().strftime("%Y-%m-%d"),
+                total_amount=tot,
+                items=parsed_items,
+            )
+
     client = get_client()
     if not client:
-        return _fallback_receipt_ocr(wholesaler_hint)
+        return _fallback_receipt_ocr(wholesaler_hint, raw_lines=lines)
 
     target_wholesaler = wholesaler_hint or "Puregold / Super8 / SM Supermarket"
     catalog_context = _get_catalog_summary(limit=25)
@@ -384,7 +467,7 @@ Return structured JSON adhering strictly to the schema."""
 
     raw_response = _generate_with_fallback(client, contents, config)
     if not raw_response:
-        return _fallback_receipt_ocr(wholesaler_hint)
+        return _fallback_receipt_ocr(wholesaler_hint, raw_lines=lines)
 
     try:
         clean_text = _clean_json_text(raw_response)
@@ -392,12 +475,22 @@ Return structured JSON adhering strictly to the schema."""
 
         # If items are empty when no image was provided, supplement with fallback
         if not validated.items and not image_part:
-            return _fallback_receipt_ocr(wholesaler_hint)
+            return _fallback_receipt_ocr(wholesaler_hint, raw_lines=lines)
 
-        # Ensure suggested_retail_price has 15% markup applied if missing
+        # Reconcile items with local fuzzy SKU matcher and ensure 15% markup
         for item in validated.items:
             item.pack_wholesale_cost = Decimal(str(item.pack_wholesale_cost))
             item.line_total = Decimal(str(item.line_total))
+
+            # Attempt local rapidfuzz match to improve SKU mapping accuracy
+            match = fuzzy_match_sku(item.raw_line_text)
+            if match and match["score"] >= 80.0:
+                item.matched_sku = match["matched_sku"]
+                item.matched_name = match["matched_name"]
+                item.confidence = max(float(item.confidence), float(match["confidence"]))
+                if not item.suggested_retail_price or item.suggested_retail_price <= Decimal("0.00"):
+                    item.suggested_retail_price = Decimal(str(match["retail_price"]))
+
             if not item.suggested_retail_price or item.suggested_retail_price <= Decimal("0.00"):
                 item.suggested_retail_price = round(item.pack_wholesale_cost * Decimal("1.15"), 2)
             else:
@@ -412,4 +505,4 @@ Return structured JSON adhering strictly to the schema."""
         return validated
     except Exception as exc:
         logger.warning("Failed to validate ReceiptOcrOut from Gemini: %s", exc)
-        return _fallback_receipt_ocr(wholesaler_hint)
+        return _fallback_receipt_ocr(wholesaler_hint, raw_lines=lines)

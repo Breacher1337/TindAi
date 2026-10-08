@@ -45,11 +45,30 @@ INSTALLED_APPS = [
     'core',
 ]
 
+import django.conf.locale
+
+EXTRA_LANG_INFO = {
+    'fil': {
+        'bidi': False,
+        'code': 'fil',
+        'name': 'Filipino',
+        'name_local': 'Filipino',
+    },
+    'tl': {
+        'bidi': False,
+        'code': 'tl',
+        'name': 'Tagalog',
+        'name_local': 'Tagalog',
+    },
+}
+django.conf.locale.LANG_INFO.update(EXTRA_LANG_INFO)
+
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.locale.LocaleMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -70,6 +89,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'django.template.context_processors.i18n',
             ],
         },
     },
@@ -84,6 +104,9 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
+        'OPTIONS': {
+            'timeout': 20,
+        },
     }
 }
 
@@ -104,14 +127,32 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 # Internationalization
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'en'
 TIME_ZONE = 'Asia/Manila'
 USE_I18N = True
 USE_TZ = True
 
+LANGUAGES = [
+    ('en', _('English')),
+    ('fil', _('Filipino')),
+    ('tl', _('Tagalog')),
+]
+
+LOCALE_PATHS = [
+    BASE_DIR / 'locale',
+]
+
+# 1-year language preference cookie persistence
+LANGUAGE_COOKIE_AGE = 60 * 60 * 24 * 365
+
+LOGIN_URL = '/admin/login/'
+
 # Static files (CSS, JavaScript, Images)
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_DIRS = [
+    BASE_DIR / 'static',
+]
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -130,6 +171,7 @@ UNFOLD = {
     "SITE_SUBHEADER": "Store Administration & Inventory Control",
     "SITE_SYMBOL": "storefront",
     "THEME": "auto",
+    "DASHBOARD_CALLBACK": "core.admin.dashboard_callback",
     "COLORS": {
         "primary": {
             "50": "#ecfdf5",
@@ -206,6 +248,11 @@ UNFOLD = {
                         "icon": "shield",
                         "link": reverse_lazy("admin:auth_group_changelist"),
                     },
+                    {
+                        "title": _("Store Configuration"),
+                        "icon": "settings",
+                        "link": reverse_lazy("admin:core_storeconfig_changelist"),
+                    },
                 ],
             },
         ],
@@ -215,3 +262,6 @@ UNFOLD = {
 # Google Gemini API Configuration
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
 GEMINI_MODEL = os.environ.get('GEMINI_MODEL', 'gemini-2.5-flash')
+
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10485760 # 10MB
+

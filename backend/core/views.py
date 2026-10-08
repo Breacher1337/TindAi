@@ -1,11 +1,17 @@
 from decimal import Decimal
+from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.shortcuts import render, redirect, get_object_or_404
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseForbidden
 from django.db import transaction
 from django.db.models import Sum, Q
-from core.models import Product, Customer, CustomerPayment, Transaction as SaleTransaction, TransactionItem
+from django.utils import translation
+from django.utils.http import url_has_allowed_host_and_scheme
+from django.utils.translation import gettext as _
+from core.models import Product, Customer, CustomerPayment, Transaction as SaleTransaction, TransactionItem, StoreConfig
 from core.services.knapsack import solve_restock_knapsack
-from core.services.analytics import get_financial_analytics
+from core.services.analytics import get_financial_analytics, get_inventory_turnover_analytics
+from core.services.inventory import deplete_product_inventory_fifo
 
 
 def _get_cart(request):
@@ -88,7 +94,7 @@ def cart_add_by_id(request):
     """Add item from dropdown selector."""
     product_id = request.POST.get('product_id')
     if product_id:
-        return cart_add(request, int(product_id))
+        return cart_add(request, product_id)
     return redirect('pos')
 
 
@@ -132,7 +138,7 @@ def cart_clear(request):
 
 @transaction.atomic
 def checkout_action(request):
-    """Finalize transaction as Cash or Utang."""
+    """Finalize transaction as Cash or Utang with FIFO inventory depletion and ledger audit."""
     if request.method != 'POST':
         return redirect('pos')
 
@@ -156,7 +162,7 @@ def checkout_action(request):
     items_to_process = []
 
     for pid, data in cart.items():
-        product = get_object_or_404(Product.objects.select_for_update(), pk=int(pid))
+        product = get_object_or_404(Product.objects.select_for_update(), pk=pid)
         qty = Decimal(str(data['qty']))
 
         # Stock non-negativity guard: if stock < qty, block checkout
@@ -175,11 +181,6 @@ def checkout_action(request):
         customer.debt_balance += total_amount
         customer.save(update_fields=['debt_balance', 'updated_at'])
 
-    # Decrement stock
-    for product, qty, unit_price, subtotal in items_to_process:
-        product.stock_quantity = product.stock_quantity - qty
-        product.save(update_fields=['stock_quantity', 'updated_at'])
-
     # Create transaction
     sale = SaleTransaction.objects.create(
         transaction_type=payment_method,
@@ -188,15 +189,23 @@ def checkout_action(request):
         payment_status='PAID' if payment_method == 'CASH' else 'PENDING',
     )
 
+    total_cogs = Decimal('0.00')
     for prod, qty, price, sub in items_to_process:
+        item_cogs, effective_cost = deplete_product_inventory_fifo(prod, qty, reference_id=str(sale.id))
+        total_cogs += item_cogs
+
         TransactionItem.objects.create(
             transaction=sale,
             product=prod,
             quantity=qty,
             unit_price=price,
-            cost_price=prod.wholesale_cost,
+            cost_price=effective_cost,
             subtotal=sub,
         )
+
+    sale.total_cogs = total_cogs
+    sale.gross_profit = sale.total_amount - total_cogs
+    sale.save(update_fields=['total_cogs', 'gross_profit'])
 
     # Clear cart
     _save_cart(request, {})
@@ -294,12 +303,16 @@ def utang_pay_action(request):
     if amount <= Decimal('0.00'):
         return HttpResponse("Payment amount must be greater than zero.", status=400)
 
+    balance_before = customer.debt_balance
+    balance_after = max(Decimal('0.00'), customer.debt_balance - amount)
     CustomerPayment.objects.create(
         customer=customer,
         amount=amount,
+        balance_before=balance_before,
+        balance_after=balance_after,
         notes=request.POST.get('notes') or 'Cash repayment at store counter',
     )
-    customer.debt_balance = max(Decimal('0.00'), customer.debt_balance - amount)
+    customer.debt_balance = balance_after
     customer.save(update_fields=['debt_balance', 'updated_at'])
 
     return redirect('utang')
@@ -341,13 +354,27 @@ def restock_calculate(request):
     return render(request, 'restock.html', context)
 
 
+def receipt_upload_view(request):
+    """View to upload and scan wholesaler receipts."""
+    return render(request, 'receipt_upload.html')
+
+
 def analytics_view(request):
-    """Real-time financial dashboard displaying profit, margins, and strict cash vs utang liquidity."""
+    """Real-time financial dashboard displaying profit, margins, strict cash vs utang liquidity, and inventory turnover."""
     period = request.GET.get('period', 'all')
     analytics = get_financial_analytics(period=period)
+    turnover = get_inventory_turnover_analytics()
     context = {
         'period': period,
         'analytics': analytics,
+        'turnover': turnover,
+        'fast_moving': turnover['fast_moving'],
+        'dead_stock': turnover['dead_stock'],
+        'all_items': turnover['all_items'],
+        'all_skus': turnover['all_skus'],
+        'fast_moving_count': turnover['fast_moving_count'],
+        'dead_stock_count': turnover['dead_stock_count'],
+        'dead_stock_tied_capital': f"{turnover['dead_stock_tied_capital']:.2f}",
         'gross_revenue': f"{analytics['gross_revenue']:.2f}",
         'cogs': f"{analytics['cogs']:.2f}",
         'net_profit': f"{analytics['net_profit']:.2f}",
@@ -360,4 +387,136 @@ def analytics_view(request):
         'total_transactions_count': analytics['total_transactions_count'],
     }
     return render(request, 'analytics.html', context)
+
+
+def settings_view(request):
+    """Store configuration frontend editor. Protected: only logged-in Admins/Staff can access."""
+    if not request.user.is_authenticated:
+        return redirect(f"/admin/login/?next={request.path}")
+    if not (request.user.is_staff or request.user.is_superuser):
+        return HttpResponseForbidden("Access Denied: Admin or Staff privileges required.")
+
+    config = StoreConfig.get_solo()
+    errors = []
+    success_message = None
+
+    form_values = {
+        'store_name': config.store_name,
+        'caretaker_identity': config.caretaker_identity,
+        'default_retail_markup_percentage': config.default_retail_markup_percentage,
+    }
+
+    if request.method == 'POST':
+        store_name = request.POST.get('store_name', '').strip()
+        caretaker_identity = request.POST.get('caretaker_identity', '').strip()
+        markup_raw = request.POST.get('default_retail_markup_percentage', '').strip()
+
+        form_values['store_name'] = store_name
+        form_values['caretaker_identity'] = caretaker_identity
+        form_values['default_retail_markup_percentage'] = markup_raw
+
+        if not store_name:
+            errors.append(_("Store name cannot be empty."))
+        elif len(store_name) > 255:
+            errors.append(_("Store name cannot exceed 255 characters."))
+
+        if not caretaker_identity:
+            errors.append(_("Caretaker identity cannot be empty."))
+        elif len(caretaker_identity) > 255:
+            errors.append(_("Caretaker identity cannot exceed 255 characters."))
+
+        markup = None
+        try:
+            markup = Decimal(markup_raw)
+            if markup < Decimal('0.00') or markup > Decimal('999.99'):
+                errors.append(_("Retail markup percentage must be between 0.00% and 999.99%."))
+        except Exception:
+            errors.append(_("Invalid markup percentage value."))
+
+        if not errors:
+            config.store_name = store_name
+            config.caretaker_identity = caretaker_identity
+            config.default_retail_markup_percentage = markup
+            try:
+                config.full_clean()
+                config.save()
+                success_message = _("Store configuration successfully updated.")
+                form_values['store_name'] = config.store_name
+                form_values['caretaker_identity'] = config.caretaker_identity
+                form_values['default_retail_markup_percentage'] = config.default_retail_markup_percentage
+            except ValidationError as ve:
+                if hasattr(ve, 'message_dict'):
+                    for msgs in ve.message_dict.values():
+                        errors.extend(msgs)
+                else:
+                    errors.extend(ve.messages)
+
+    context = {
+        'config': form_values,
+        'errors': errors,
+        'success_message': success_message,
+    }
+    status = 400 if (request.method == 'POST' and errors) else 200
+    return render(request, 'settings.html', context, status=status)
+
+
+def switch_language_view(request, lang_code):
+    """Direct helper to switch language and redirect back."""
+    next_url = request.GET.get('next') or request.META.get('HTTP_REFERER') or '/'
+    if not url_has_allowed_host_and_scheme(
+        url=next_url,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        next_url = '/'
+
+    lang_code_lower = (lang_code or '').strip().lower()
+    if lang_code_lower in ('filipino', 'pilipino'):
+        lang_code_lower = 'fil'
+    elif lang_code_lower in ('tagalog',):
+        lang_code_lower = 'tl'
+    elif lang_code_lower in ('english',):
+        lang_code_lower = 'en'
+
+    supported = dict(settings.LANGUAGES)
+    if lang_code_lower in supported:
+        translation.activate(lang_code_lower)
+        response = redirect(next_url)
+        response.set_cookie(
+            settings.LANGUAGE_COOKIE_NAME,
+            lang_code_lower,
+            max_age=settings.LANGUAGE_COOKIE_AGE,
+            path=settings.LANGUAGE_COOKIE_PATH,
+            domain=settings.LANGUAGE_COOKIE_DOMAIN,
+            secure=settings.LANGUAGE_COOKIE_SECURE,
+            httponly=settings.LANGUAGE_COOKIE_HTTPONLY,
+            samesite=settings.LANGUAGE_COOKIE_SAMESITE,
+        )
+        if hasattr(request, 'session'):
+            request.session['_language'] = lang_code_lower
+        return response
+    return redirect(next_url)
+
+
+def service_worker_view(request):
+    """Serve root-scoped service worker file with Service-Worker-Allowed: / header."""
+    sw_file = settings.BASE_DIR / 'static' / 'sw.js'
+    if sw_file.exists():
+        with open(sw_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+        response = HttpResponse(content, content_type='application/javascript')
+        response['Service-Worker-Allowed'] = '/'
+        return response
+    return HttpResponse("// sw.js not found", content_type='application/javascript', status=404)
+
+
+def manifest_view(request):
+    """Serve PWA web app manifest at root /manifest.json."""
+    manifest_file = settings.BASE_DIR / 'static' / 'manifest.json'
+    if manifest_file.exists():
+        with open(manifest_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+        return HttpResponse(content, content_type='application/json')
+    return HttpResponse("{}", content_type='application/json', status=404)
+
 

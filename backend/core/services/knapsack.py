@@ -52,7 +52,8 @@ def solve_restock_knapsack(candidates: Iterable[Any], budget: Decimal) -> Dict[s
         u_i = min(10, max(1, int(float(rop) * 2 - float(stock))))
 
         var_id = getattr(prod, "id", None)
-        var_name = f"buy_{var_id if var_id is not None else idx}"
+        clean_var_id = str(var_id).replace("-", "_") if var_id is not None else idx
+        var_name = f"buy_{clean_var_id}"
         var = pulp.LpVariable(var_name, lowBound=0, upBound=u_i, cat=pulp.LpInteger)
         var_map.append((prod, var, cost, margin))
 

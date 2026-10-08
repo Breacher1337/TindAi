@@ -1,23 +1,36 @@
 <!DOCTYPE html>
-<html lang="en">
+{% load i18n static %}
+<html lang="{{ request.LANGUAGE_CODE|default:'en' }}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>{% block title %}TindAI - Sari-Sari POS{% endblock %}</title>
-  <!-- Tailwind CSS & HTMX via CDN: Zero Build Step Required -->
+
+  <!-- PWA Web App Manifest & Mobile Meta Tags -->
+  <link rel="manifest" href="{% static 'manifest.json' %}">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="TindAI">
+  <link rel="apple-touch-icon" href="{% static 'icons/icon-192.png' %}">
+
+  <!-- Tailwind CSS, HTMX & Alpine.js via CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/htmx.org@2.0.3"></script>
+  <script defer src="https://unpkg.com/alpinejs@3.14.3/dist/cdn.min.js"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="{% static 'js/offline_store.js' %}"></script>
   <style>
     /* Mobile-first touch ergonomics */
     body { -webkit-tap-highlight-color: transparent; }
     .touch-target { min-height: 48px; min-width: 48px; }
+    [x-cloak] { display: none !important; }
 
     /* Print Stylesheet for Shopping Lists */
     @media print {
       body { background: white !important; font-size: 12pt !important; }
       header, nav, .no-print { display: none !important; }
-      .max-w-md { max-width: 100% !important; box-shadow: none !important; padding-bottom: 0 !important; }
+      .max-w-md, .lg\:max-w-7xl { max-width: 100% !important; box-shadow: none !important; padding-bottom: 0 !important; }
       main { padding: 0 !important; }
       .print-only { display: block !important; }
     }
@@ -28,53 +41,128 @@
 </head>
 <body class="bg-slate-200 text-slate-900 font-sans antialiased" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
   
-  <!-- Centered Mobile Viewport Container (375px - 430px) -->
-  <div class="max-w-md mx-auto min-h-screen bg-white shadow-2xl flex flex-col justify-between relative pb-20">
+  <!-- Responsive Viewport Container (mobile: max-w-md, desktop: max-w-7xl) -->
+  <div class="w-full max-w-md md:max-w-4xl lg:max-w-7xl mx-auto min-h-screen bg-white shadow-2xl flex flex-col justify-between relative pb-20 md:pb-6 transition-all duration-150">
     
-    <!-- Top Header -->
-    <header class="bg-emerald-700 text-white px-4 py-3 flex items-center justify-between sticky top-0 z-30 shadow-sm">
-      <div>
-        <h1 class="font-bold text-lg tracking-tight">TindAI</h1>
-        <p class="text-xs text-emerald-100 font-medium">Sari-Sari Store OS</p>
+    <!-- Top Header with Desktop Navigation & Language Switcher -->
+    <header class="bg-emerald-700 text-white px-4 md:px-8 py-3.5 flex items-center justify-between sticky top-0 z-30 shadow-sm">
+      <div class="flex items-center gap-6">
+        <a href="/pos/" class="flex items-center gap-2 group">
+          <div>
+            <h1 class="font-black text-xl tracking-tight leading-none text-white">TindAI</h1>
+            <p class="text-[10px] text-emerald-100 font-medium tracking-wide uppercase mt-0.5">Sari-Sari Store OS</p>
+          </div>
+        </a>
+
+        <!-- Desktop Navigation Bar (hidden on mobile, visible on desktop) -->
+        <nav class="hidden md:flex items-center gap-1 text-xs font-bold" id="desktop-nav-menu">
+          <a href="/pos/" class="px-3 py-1.5 rounded-lg transition {% if request.path == '/' or request.path == '/pos/' %}bg-emerald-800 text-white shadow-xs{% else %}text-emerald-100 hover:bg-emerald-600 hover:text-white{% endif %}">
+            {% trans "POS" %}
+          </a>
+          <a href="/inventory/" class="px-3 py-1.5 rounded-lg transition {% if request.path == '/inventory/' %}bg-emerald-800 text-white shadow-xs{% else %}text-emerald-100 hover:bg-emerald-600 hover:text-white{% endif %}">
+            {% trans "Stocks" %}
+          </a>
+          <a href="/utang/" class="px-3 py-1.5 rounded-lg transition {% if request.path == '/utang/' %}bg-emerald-800 text-white shadow-xs{% else %}text-emerald-100 hover:bg-emerald-600 hover:text-white{% endif %}">
+            {% trans "Utang" %}
+          </a>
+          <a href="/restock/" class="px-3 py-1.5 rounded-lg transition {% if request.path == '/restock/' %}bg-emerald-800 text-white shadow-xs{% else %}text-emerald-100 hover:bg-emerald-600 hover:text-white{% endif %}">
+            {% trans "Restock" %}
+          </a>
+          <a href="/analytics/" class="px-3 py-1.5 rounded-lg transition {% if request.path == '/analytics/' %}bg-emerald-800 text-white shadow-xs{% else %}text-emerald-100 hover:bg-emerald-600 hover:text-white{% endif %}">
+            {% trans "Analytics" %}
+          </a>
+          <a href="/settings/" class="px-3 py-1.5 rounded-lg transition {% if request.path == '/settings/' %}bg-emerald-800 text-white shadow-xs{% else %}text-emerald-100 hover:bg-emerald-600 hover:text-white{% endif %}">
+            {% trans "Settings" %}
+          </a>
+        </nav>
       </div>
-      <div class="text-right">
-        <a href="/admin/" class="text-xs bg-emerald-800 hover:bg-emerald-900 text-white px-2.5 py-1 rounded font-semibold transition">
+
+      <div class="flex items-center gap-2.5">
+        <!-- English / Filipino Language Switcher Toggle -->
+        <form action="/i18n/setlang/" method="POST" id="language-switcher-form" class="inline-flex items-center bg-emerald-800/80 rounded-xl p-0.5 border border-emerald-600/50 shadow-xs">
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{{ request.get_full_path }}">
+          <button type="submit" name="language" value="en"
+                  id="lang-btn-en"
+                  class="px-2.5 py-1 rounded-lg text-[11px] font-black tracking-wider transition {% if request.LANGUAGE_CODE == 'en' %}bg-white text-emerald-900 shadow-xs{% else %}text-emerald-200 hover:text-white{% endif %}">
+            EN
+          </button>
+          <button type="submit" name="language" value="fil"
+                  id="lang-btn-fil"
+                  class="px-2.5 py-1 rounded-lg text-[11px] font-black tracking-wider transition {% if request.LANGUAGE_CODE == 'fil' or request.LANGUAGE_CODE == 'tl' %}bg-white text-emerald-900 shadow-xs{% else %}text-emerald-200 hover:text-white{% endif %}">
+            FIL
+          </button>
+        </form>
+
+        <!-- Settings Link -->
+        <a href="/settings/" id="global-header-settings-link"
+           class="text-xs bg-emerald-800 hover:bg-emerald-900 text-white px-2.5 py-1.5 rounded-xl font-semibold transition flex items-center gap-1 shadow-xs"
+           title="{% trans 'Settings' %}">
+          <i data-lucide="settings" class="w-3.5 h-3.5"></i>
+          <span class="hidden sm:inline">{% trans "Settings" %}</span>
+        </a>
+
+        <!-- Admin Link -->
+        <a href="/admin/" id="global-header-admin-link"
+           class="text-xs bg-emerald-900/80 hover:bg-emerald-950 text-white px-2.5 py-1.5 rounded-xl font-semibold transition shadow-xs">
           Admin
         </a>
       </div>
     </header>
 
     <!-- Main Content Body -->
-    <main class="flex-1 p-4 overflow-y-auto">
+    <main class="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto">
       {% block content %}{% endblock %}
     </main>
 
-    <!-- Bottom Thumb Navigation Bar -->
-    <nav class="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white border-t border-slate-200 grid grid-cols-5 z-40 shadow-lg">
+    <!-- Bottom Thumb Navigation Bar (Mobile only) -->
+    <nav class="md:hidden fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white border-t border-slate-200 grid grid-cols-5 z-40 shadow-lg" id="mobile-bottom-nav">
       <a href="/pos/" class="py-2.5 flex flex-col items-center justify-center touch-target {% if request.path == '/' or request.path == '/pos/' %}text-emerald-700 font-bold bg-emerald-50{% else %}text-slate-500 hover:text-slate-800{% endif %}">
-        <span class="text-xs uppercase tracking-wider">Benta</span>
-        <span class="text-[10px] text-slate-400">POS</span>
+        <span class="text-xs uppercase tracking-wider">{% trans "Benta" %}</span>
+        <span class="text-[10px] text-slate-400">{% trans "POS" %}</span>
       </a>
       <a href="/inventory/" class="py-2.5 flex flex-col items-center justify-center touch-target {% if request.path == '/inventory/' %}text-emerald-700 font-bold bg-emerald-50{% else %}text-slate-500 hover:text-slate-800{% endif %}">
-        <span class="text-xs uppercase tracking-wider">Tira</span>
-        <span class="text-[10px] text-slate-400">Stocks</span>
+        <span class="text-xs uppercase tracking-wider">{% trans "Tira" %}</span>
+        <span class="text-[10px] text-slate-400">{% trans "Stocks" %}</span>
       </a>
       <a href="/utang/" class="py-2.5 flex flex-col items-center justify-center touch-target {% if request.path == '/utang/' %}text-emerald-700 font-bold bg-emerald-50{% else %}text-slate-500 hover:text-slate-800{% endif %}">
-        <span class="text-xs uppercase tracking-wider">Utang</span>
-        <span class="text-[10px] text-slate-400">Ledger</span>
+        <span class="text-xs uppercase tracking-wider">{% trans "Utang" %}</span>
+        <span class="text-[10px] text-slate-400">{% trans "Ledger" %}</span>
       </a>
       <a href="/restock/" class="py-2.5 flex flex-col items-center justify-center touch-target {% if request.path == '/restock/' %}text-emerald-700 font-bold bg-emerald-50{% else %}text-slate-500 hover:text-slate-800{% endif %}">
-        <span class="text-xs uppercase tracking-wider">Bili</span>
-        <span class="text-[10px] text-slate-400">Restock</span>
+        <span class="text-xs uppercase tracking-wider">{% trans "Bili" %}</span>
+        <span class="text-[10px] text-slate-400">{% trans "Restock" %}</span>
       </a>
       <a href="/analytics/" class="py-2.5 flex flex-col items-center justify-center touch-target {% if request.path == '/analytics/' %}text-emerald-700 font-bold bg-emerald-50{% else %}text-slate-500 hover:text-slate-800{% endif %}">
-        <span class="text-xs uppercase tracking-wider">Tubo</span>
-        <span class="text-[10px] text-slate-400">Analytics</span>
+        <span class="text-xs uppercase tracking-wider">{% trans "Tubo" %}</span>
+        <span class="text-[10px] text-slate-400">{% trans "Analytics" %}</span>
       </a>
     </nav>
 
   </div>
 
   {% block extra_scripts %}{% endblock %}
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function() {
+        navigator.serviceWorker.register('/sw.js')
+          .then(function(reg) {
+            console.log('TindAI ServiceWorker registered with scope:', reg.scope);
+          })
+          .catch(function(err) {
+            console.warn('TindAI ServiceWorker registration failed:', err);
+          });
+      });
+    }
+
+    document.addEventListener('htmx:afterSwap', function(evt) {
+      if (window.Alpine) {
+        window.Alpine.initTree(evt.detail.target);
+      }
+      if (window.lucide) {
+        window.lucide.createIcons();
+      }
+    });
+  </script>
 </body>
 </html>

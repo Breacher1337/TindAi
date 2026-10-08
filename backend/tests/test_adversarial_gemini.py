@@ -327,6 +327,10 @@ class TestAdversarialImageInputs:
 class TestModelFallbackAndErrorHandling:
     """Stress-test error handling: 404 model not found, 503 service unavailable, bad JSON."""
 
+    @pytest.fixture(autouse=True)
+    def setup_client(self, settings):
+        settings.GEMINI_API_KEY = "test-gemini-key-for-mocking"
+
     def test_model_candidate_fallback_on_404(self, seed_catalog):
         """When candidate 1 raises 404, candidate 2 should be invoked and succeed."""
         client = gemini.get_client()

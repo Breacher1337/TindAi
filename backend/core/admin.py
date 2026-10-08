@@ -1,12 +1,55 @@
+from decimal import Decimal
 from django.contrib import admin
+from django.db.models import Sum, F
+from django.utils import timezone
 from unfold.admin import ModelAdmin, TabularInline
 from unfold.decorators import display
-from .models import Product, Customer, CustomerPayment, Transaction, TransactionItem, RestockRun, StoreConfig
+from .models import (
+    Product, Customer, CustomerPayment, Transaction, TransactionItem,
+    RestockRun, StoreConfig, Wholesaler, InventoryBatch, StockMovement,
+    RestockInvoice, RestockInvoiceItem
+)
 
 
 admin.site.site_header = "TindAI Sari-Sari Store Management"
 admin.site.site_title = "TindAI Admin"
 admin.site.index_title = "Store Administration & Inventory Control"
+
+
+@admin.register(Wholesaler)
+class WholesalerAdmin(ModelAdmin):
+    list_display = ('name', 'branch', 'contact_number', 'created_at')
+    search_fields = ('name', 'branch', 'contact_number')
+    ordering = ('name',)
+
+
+@admin.register(InventoryBatch)
+class InventoryBatchAdmin(ModelAdmin):
+    list_display = ('product', 'remaining_tingi_quantity', 'initial_tingi_quantity', 'unit_cost_basis', 'received_at')
+    list_filter = ('received_at',)
+    search_fields = ('product__name', 'product__sku')
+    date_hierarchy = 'received_at'
+
+
+@admin.register(StockMovement)
+class StockMovementAdmin(ModelAdmin):
+    list_display = ('product', 'movement_type', 'quantity_change', 'balance_after', 'reference_id', 'timestamp')
+    list_filter = ('movement_type', 'timestamp')
+    search_fields = ('product__name', 'product__sku', 'reference_id')
+    date_hierarchy = 'timestamp'
+
+
+class RestockInvoiceItemInline(TabularInline):
+    model = RestockInvoiceItem
+    extra = 0
+
+
+@admin.register(RestockInvoice)
+class RestockInvoiceAdmin(ModelAdmin):
+    list_display = ('invoice_no', 'wholesaler', 'wholesaler_name', 'total_amount', 'parse_status', 'date', 'created_at')
+    list_filter = ('parse_status', 'date')
+    search_fields = ('invoice_no', 'wholesaler_name')
+    inlines = [RestockInvoiceItemInline]
 
 
 @admin.register(Product)
@@ -81,7 +124,7 @@ class CustomerAdmin(ModelAdmin):
 
 @admin.register(CustomerPayment)
 class CustomerPaymentAdmin(ModelAdmin):
-    list_display = ('id', 'customer', 'formatted_amount', 'created_at')
+    list_display = ('id', 'customer', 'formatted_amount', 'balance_before', 'balance_after', 'created_at')
     search_fields = ('customer__name', 'notes')
     list_filter = ('created_at',)
     list_filter_submit = True
@@ -108,12 +151,13 @@ class TransactionItemInline(TabularInline):
 @admin.register(Transaction)
 class TransactionAdmin(ModelAdmin):
     list_display = (
-        'id', 'transaction_type_badge', 'formatted_total',
-        'payment_status_badge', 'customer', 'created_at'
+        'transaction_number', 'id', 'transaction_type_badge', 'formatted_total',
+        'total_cogs', 'gross_profit', 'sync_status', 'payment_status_badge',
+        'customer', 'created_at'
     )
-    list_filter = ('transaction_type', 'payment_status', 'created_at')
+    list_filter = ('transaction_type', 'payment_status', 'sync_status', 'created_at')
     list_filter_submit = True
-    search_fields = ('id', 'customer__name')
+    search_fields = ('id', 'transaction_number', 'customer__name')
     date_hierarchy = 'created_at'
     inlines = [TransactionItemInline]
     readonly_fields = ('created_at',)
@@ -172,3 +216,59 @@ class StoreConfigAdmin(ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+
+def dashboard_callback(request, context):
+    """Callback providing key store performance metrics for Unfold dashboard."""
+    today = timezone.localdate()
+
+    daily_revenue = Transaction.objects.filter(
+        created_at__date=today
+    ).aggregate(Sum('total_amount'))['total_amount__sum'] or Decimal('0.00')
+
+    utang_balances = Customer.objects.filter(
+        is_active=True
+    ).aggregate(Sum('debt_balance'))['debt_balance__sum'] or Decimal('0.00')
+
+    low_stock_count = Product.objects.filter(
+        is_active=True,
+        stock_quantity__lte=F('reorder_point')
+    ).count()
+
+    out_of_stock_count = Product.objects.filter(
+        is_active=True,
+        stock_quantity__lte=0
+    ).count()
+
+    total_products_count = Product.objects.filter(is_active=True).count()
+    daily_transactions_count = Transaction.objects.filter(created_at__date=today).count()
+    debtors_count = Customer.objects.filter(is_active=True, debt_balance__gt=0).count()
+
+    context.update({
+        'kpi_metrics': [
+            {
+                'title': 'Daily Revenue',
+                'value': f"₱{daily_revenue:,.2f}",
+                'description': f"{daily_transactions_count} transactions recorded today",
+                'icon': 'payments',
+            },
+            {
+                'title': 'Utang Balances',
+                'value': f"₱{utang_balances:,.2f}",
+                'description': f"{debtors_count} customers with outstanding credit",
+                'icon': 'account_balance_wallet',
+            },
+            {
+                'title': 'Low Stock',
+                'value': str(low_stock_count),
+                'description': f"{out_of_stock_count} out of stock ({total_products_count} total SKUs)",
+                'icon': 'inventory_2',
+            },
+        ],
+        'daily_revenue': f"₱{daily_revenue:,.2f}",
+        'utang_balances': f"₱{utang_balances:,.2f}",
+        'low_stock_count': low_stock_count,
+        'out_of_stock_count': out_of_stock_count,
+        'daily_transactions_count': daily_transactions_count,
+    })
+    return context

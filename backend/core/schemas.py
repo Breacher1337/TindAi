@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 from typing import List, Optional
 from decimal import Decimal
@@ -24,7 +25,7 @@ class ProductIn(Schema):
 
 
 class ProductOut(Schema):
-    id: int
+    id: uuid.UUID
     sku: str
     name: str
     brand: str
@@ -54,7 +55,7 @@ class CustomerIn(Schema):
 
 
 class CustomerOut(Schema):
-    id: int
+    id: uuid.UUID
     name: str
     nickname: str
     phone: str
@@ -72,9 +73,11 @@ class CustomerPaymentIn(Schema):
 
 
 class CustomerPaymentOut(Schema):
-    id: int
-    customer_id: int
+    id: uuid.UUID
+    customer_id: uuid.UUID
     amount: Decimal
+    balance_before: Optional[Decimal] = Decimal("0.00")
+    balance_after: Optional[Decimal] = Decimal("0.00")
     notes: str
     created_at: datetime
     new_debt_balance: Decimal
@@ -85,13 +88,13 @@ class CustomerPaymentOut(Schema):
 # -------------------------------------------------------------
 
 class TransactionItemIn(Schema):
-    product_id: int
+    product_id: uuid.UUID
     quantity: Decimal = Field(default=Decimal("1.0000"), gt=0)
 
 
 class TransactionItemOut(Schema):
-    id: int
-    product_id: int
+    id: uuid.UUID
+    product_id: uuid.UUID
     product_name: str
     product_sku: str
     quantity: Decimal
@@ -101,18 +104,24 @@ class TransactionItemOut(Schema):
 
 
 class TransactionCheckoutIn(Schema):
+    id: Optional[uuid.UUID] = None
+    sync_status: Optional[str] = "SYNCED"
     transaction_type: str = "CASH"  # CASH or UTANG
-    customer_id: Optional[int] = None
+    customer_id: Optional[uuid.UUID] = None
     items: List[TransactionItemIn]
     notes: Optional[str] = ""
 
 
 class TransactionOut(Schema):
-    id: int
+    id: uuid.UUID
+    transaction_number: Optional[str] = None
     transaction_type: str
     total_amount: Decimal
+    total_cogs: Decimal = Decimal("0.00")
+    gross_profit: Decimal = Decimal("0.00")
     payment_status: str
-    customer_id: Optional[int] = None
+    sync_status: str = "SYNCED"
+    customer_id: Optional[uuid.UUID] = None
     customer_name: Optional[str] = None
     notes: str
     items: List[TransactionItemOut]
@@ -192,6 +201,8 @@ class CounterDetectOut(Schema):
 class ReceiptOcrIn(Schema):
     image_base64: Optional[str] = None
     wholesaler_hint: Optional[str] = "Puregold / Super8 / SM Supermarket"
+    raw_lines: Optional[List[str]] = None
+    raw_text: Optional[str] = None
 
 
 class ParsedReceiptItem(Schema):
@@ -229,4 +240,38 @@ class AnalyticsOut(Schema):
     repayments_total: Decimal
     total_transactions_count: int
     period: Optional[str] = "all"
+
+
+# -------------------------------------------------------------
+# Inventory Turnover Schemas
+# -------------------------------------------------------------
+
+class ProductTurnoverItem(Schema):
+    product_id: uuid.UUID
+    sku: str
+    name: str
+    category: str
+    sales_7d: Decimal
+    sales_30d: Decimal
+    daily_velocity_7d: float
+    daily_velocity_30d: float
+    current_stock: Decimal
+    wholesale_cost: Decimal = Decimal("0.00")
+    retail_price: Decimal = Decimal("0.00")
+    stock_value: Decimal
+    turnover_ratio: float
+    status: str
+    status_label: str
+
+
+class InventoryTurnoverOut(Schema):
+    fast_moving: List[ProductTurnoverItem]
+    dead_stock: List[ProductTurnoverItem]
+    all_items: List[ProductTurnoverItem]
+    all_skus: Optional[List[ProductTurnoverItem]] = None
+    fast_moving_count: int
+    dead_stock_count: int
+    dead_stock_tied_capital: Decimal
+    as_of: datetime
+
 

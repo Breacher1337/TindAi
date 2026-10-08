@@ -1,11 +1,32 @@
+import uuid
 from decimal import Decimal
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, models
 from django.utils import timezone
 
 
+class Wholesaler(models.Model):
+    """Supplier directory archiving supermarket and distributor details."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=255)
+    branch = models.CharField(max_length=255, blank=True, default='')
+    contact_number = models.CharField(max_length=50, blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = 'Wholesaler'
+        verbose_name_plural = 'Wholesalers'
+
+    def __str__(self):
+        if self.branch:
+            return f"{self.name} - {self.branch}"
+        return self.name
+
+
 class Product(models.Model):
     """FMCG inventory item in sari-sari store catalog."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     sku = models.CharField(max_length=50, unique=True, db_index=True)
     name = models.CharField(max_length=255)
     brand = models.CharField(max_length=100, blank=True, default='')
@@ -37,6 +58,7 @@ class Product(models.Model):
 
 class Customer(models.Model):
     """Customer profile with digital utang (credit) ledger tracking."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=255)
     nickname = models.CharField(max_length=100, blank=True, default='')
     phone = models.CharField(max_length=50, blank=True, default='')
@@ -61,8 +83,21 @@ class Customer(models.Model):
 
 class CustomerPayment(models.Model):
     """Record of debt liquidation payment made by customer."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='payments')
     amount = models.DecimalField(max_digits=10, decimal_places=2)
+    balance_before = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        help_text="Customer debt balance before this payment"
+    )
+    balance_after = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        help_text="Customer debt balance after this payment"
+    )
     notes = models.CharField(max_length=255, blank=True, default='')
     created_at = models.DateTimeField(default=timezone.now)
 
@@ -93,9 +128,42 @@ class Transaction(models.Model):
         (STATUS_PARTIAL, 'Partial'),
     ]
 
+    SYNC_STATUS_PENDING = 'PENDING_OFFLINE'
+    SYNC_STATUS_SYNCED = 'SYNCED'
+    SYNC_STATUS_CHOICES = [
+        (SYNC_STATUS_PENDING, 'Pending Offline'),
+        (SYNC_STATUS_SYNCED, 'Synced'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    transaction_number = models.CharField(
+        max_length=50,
+        unique=True,
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="Unique human-readable transaction identifier e.g. TXN-YYYYMMDD-XXXX"
+    )
     transaction_type = models.CharField(max_length=10, choices=TRANSACTION_TYPE_CHOICES, default=TYPE_CASH)
     total_amount = models.DecimalField(max_digits=10, decimal_places=2)
+    total_cogs = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        help_text="Total Cost of Goods Sold"
+    )
+    gross_profit = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        help_text="Gross profit = total_amount - total_cogs"
+    )
     payment_status = models.CharField(max_length=10, choices=PAYMENT_STATUS_CHOICES, default=STATUS_PAID)
+    sync_status = models.CharField(
+        max_length=20,
+        choices=SYNC_STATUS_CHOICES,
+        default=SYNC_STATUS_SYNCED
+    )
     customer = models.ForeignKey(
         Customer,
         on_delete=models.SET_NULL,
@@ -104,19 +172,36 @@ class Transaction(models.Model):
         related_name='transactions'
     )
     notes = models.CharField(max_length=255, blank=True, default='')
-    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    created_at = models.DateTimeField(default=timezone.now, db_index=True)
 
     class Meta:
         ordering = ['-created_at']
         verbose_name = 'Transaction'
         verbose_name_plural = 'Transactions'
 
+    def save(self, *args, **kwargs):
+        if not self.transaction_number:
+            today_str = timezone.now().strftime('%Y%m%d')
+            prefix = f"TXN-{today_str}-"
+            count = Transaction.objects.filter(transaction_number__startswith=prefix).count() + 1
+            candidate = f"{prefix}{count:04d}"
+            while Transaction.objects.filter(transaction_number=candidate).exists():
+                count += 1
+                candidate = f"{prefix}{count:04d}"
+            self.transaction_number = candidate
+
+        if self.total_amount is not None and self.total_cogs is not None and self.gross_profit == Decimal('0.00'):
+            self.gross_profit = self.total_amount - self.total_cogs
+
+        super().save(*args, **kwargs)
+
     def __str__(self):
-        return f"Tx #{self.id} [{self.transaction_type}] ₱{self.total_amount:.2f}"
+        return f"Tx {self.transaction_number or self.id} [{self.transaction_type}] ₱{self.total_amount:.2f}"
 
 
 class TransactionItem(models.Model):
     """Line item in a checkout transaction."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     transaction = models.ForeignKey(Transaction, on_delete=models.CASCADE, related_name='items')
     product = models.ForeignKey(Product, on_delete=models.PROTECT, related_name='transaction_items')
     quantity = models.DecimalField(max_digits=10, decimal_places=4, default=Decimal('1.0000'))
@@ -139,18 +224,111 @@ class TransactionItem(models.Model):
 
 class RestockRun(models.Model):
     """Historical record of capital-constrained restocking knapsack optimization."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     budget = models.DecimalField(max_digits=10, decimal_places=2)
     total_spent = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     items_json = models.JSONField(default=list, help_text="Optimized list of packs to buy with SKU, qty, and cost")
     created_at = models.DateTimeField(auto_now_add=True)
 
-    class Meta:
-        ordering = ['-created_at']
-        verbose_name = 'Restock Run'
-        verbose_name_plural = 'Restock Runs'
+
+class RestockInvoice(models.Model):
+    """Historical record of a physical receipt applied to inventory."""
+    PARSE_PENDING = 'PENDING'
+    PARSE_PARSED = 'PARSED'
+    PARSE_CONFIRMED = 'CONFIRMED'
+    PARSE_STATUS_CHOICES = [
+        (PARSE_PENDING, 'Pending'),
+        (PARSE_PARSED, 'Parsed'),
+        (PARSE_CONFIRMED, 'Confirmed'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    wholesaler = models.ForeignKey(
+        Wholesaler,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='invoices'
+    )
+    wholesaler_name = models.CharField(max_length=255)
+    invoice_no = models.CharField(max_length=255, blank=True)
+    date = models.DateField(null=True, blank=True)
+    total_amount = models.DecimalField(max_digits=10, decimal_places=2)
+    parse_status = models.CharField(
+        max_length=20,
+        choices=PARSE_STATUS_CHOICES,
+        default=PARSE_CONFIRMED
+    )
+    image_path = models.CharField(max_length=255, blank=True, help_text="Path to raw receipt image if saved")
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"Restock Run #{self.id} - Budget: ₱{self.budget:.2f}, Spent: ₱{self.total_spent:.2f}"
+        return f"{self.wholesaler_name} - {self.invoice_no}"
+
+
+class RestockInvoiceItem(models.Model):
+    """Line item from an applied receipt."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    invoice = models.ForeignKey(RestockInvoice, on_delete=models.CASCADE, related_name='items')
+    product = models.ForeignKey(Product, on_delete=models.SET_NULL, null=True, blank=True, related_name='restock_history')
+    raw_line_text = models.CharField(max_length=255)
+    qty_packs = models.IntegerField(default=1)
+    pack_wholesale_cost = models.DecimalField(max_digits=10, decimal_places=2)
+    line_total = models.DecimalField(max_digits=10, decimal_places=2)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.raw_line_text} (x{self.qty_packs})"
+
+
+class InventoryBatch(models.Model):
+    """FIFO unit cost tracking per stock-in delivery batch."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='batches')
+    invoice_item = models.ForeignKey(RestockInvoiceItem, on_delete=models.SET_NULL, null=True, blank=True, related_name='batches')
+    initial_tingi_quantity = models.DecimalField(max_digits=10, decimal_places=4)
+    remaining_tingi_quantity = models.DecimalField(max_digits=10, decimal_places=4)
+    unit_cost_basis = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    received_at = models.DateTimeField(default=timezone.now, db_index=True)
+
+    class Meta:
+        ordering = ['received_at']
+        verbose_name = 'Inventory Batch'
+        verbose_name_plural = 'Inventory Batches'
+
+    def __str__(self):
+        return f"Batch for {self.product.name} ({self.remaining_tingi_quantity}/{self.initial_tingi_quantity} @ ₱{self.unit_cost_basis:.2f})"
+
+
+class StockMovement(models.Model):
+    """Append-only audit ledger tracking every stock ingress, egress, spoilage, or adjustment."""
+    MOVEMENT_SALE = 'SALE'
+    MOVEMENT_RESTOCK = 'RESTOCK'
+    MOVEMENT_SPOILAGE = 'SPOILAGE'
+    MOVEMENT_AUDIT_ADJUSTMENT = 'AUDIT_ADJUSTMENT'
+    MOVEMENT_TYPE_CHOICES = [
+        (MOVEMENT_SALE, 'Sale'),
+        (MOVEMENT_RESTOCK, 'Restock'),
+        (MOVEMENT_SPOILAGE, 'Spoilage'),
+        (MOVEMENT_AUDIT_ADJUSTMENT, 'Audit Adjustment'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='stock_movements')
+    movement_type = models.CharField(max_length=20, choices=MOVEMENT_TYPE_CHOICES)
+    quantity_change = models.DecimalField(max_digits=10, decimal_places=4)
+    balance_after = models.DecimalField(max_digits=10, decimal_places=4)
+    reference_id = models.CharField(max_length=255, blank=True, default='')
+    timestamp = models.DateTimeField(default=timezone.now, db_index=True)
+
+    class Meta:
+        ordering = ['-timestamp']
+        verbose_name = 'Stock Movement'
+        verbose_name_plural = 'Stock Movements'
+
+    def __str__(self):
+        sign = "+" if self.quantity_change > 0 else ""
+        return f"{self.product.name} [{self.movement_type}] {sign}{self.quantity_change} -> Bal: {self.balance_after}"
 
 
 class StoreConfig(models.Model):

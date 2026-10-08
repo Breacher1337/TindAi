@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Store Settings" %} - TindAI{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6">
+
+  <!-- Header -->
+  <div class="border-b border-slate-200 pb-4">
+    <div class="flex items-center justify-between">
+      <div>
+        <h2 class="font-black text-xl text-slate-900 tracking-tight">{% trans "Store Configuration" %}</h2>
+        <p class="text-xs text-slate-500 mt-1">{% trans "Store identity, caretaker profile, and pricing markups." %}</p>
+      </div>
+      <a href="/admin/core/storeconfig/" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-2 rounded-xl transition">
+        {% trans "Admin View" %}
+      </a>
+    </div>
+  </div>
+
+  <!-- Success Notification -->
+  {% if success_message %}
+  <div class="bg-emerald-50 border border-emerald-300 text-emerald-900 rounded-xl p-4 text-xs font-semibold flex items-center justify-between shadow-xs">
+    <span>{{ success_message }}</span>
+    <span class="text-emerald-700 font-bold">OK</span>
+  </div>
+  {% endif %}
+
+  <!-- Validation Error Alerts -->
+  {% if errors %}
+  <div class="bg-rose-50 border border-rose-300 text-rose-900 rounded-xl p-4 text-xs space-y-1 shadow-xs">
+    <div class="font-black text-rose-800 uppercase tracking-wider">{% trans "Validation Errors:" %}</div>
+    <ul class="list-disc pl-4 space-y-0.5">
+      {% for err in errors %}
+      <li>{{ err }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  <!-- Settings Form -->
+  <form method="POST" action="/settings/" class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-5">
+    {% csrf_token %}
+
+    <!-- Store Name -->
+    <div>
+      <label for="store_name" class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">
+        {% trans "Store Name" %}
+      </label>
+      <input type="text" id="store_name" name="store_name" value="{{ config.store_name }}" maxlength="255" required
+             class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600">
+      <p class="text-[11px] text-slate-400 mt-1">{% trans "The official public name of your retail sari-sari establishment." %}</p>
+    </div>
+
+    <!-- Caretaker Identity -->
+    <div>
+      <label for="caretaker_identity" class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">
+        {% trans "Caretaker Identity" %}
+      </label>
+      <input type="text" id="caretaker_identity" name="caretaker_identity" value="{{ config.caretaker_identity }}" maxlength="255" required
+             class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600">
+      <p class="text-[11px] text-slate-400 mt-1">{% trans "Active tindero, tindera, or cashier on duty." %}</p>
+    </div>
+
+    <!-- Default Markup Percentage -->
+    <div>
+      <label for="default_retail_markup_percentage" class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">
+        {% trans "Default Retail Markup Percentage" %} (%)
+      </label>
+      <div class="relative">
+        <input type="number" step="0.01" min="0" max="999.99" id="default_retail_markup_percentage" name="default_retail_markup_percentage" value="{{ config.default_retail_markup_percentage }}" required
+               class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600">
+        <span class="absolute right-3.5 top-2.5 text-sm font-bold text-slate-400">%</span>
+      </div>
+      <p class="text-[11px] text-slate-400 mt-1">{% trans "Suggested profit markup applied over wholesale replenishment unit cost." %}</p>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="pt-4 border-t border-slate-100 flex items-center justify-between">
+      <a href="/pos/" class="text-xs text-slate-500 hover:text-slate-700 font-bold">
+        {% trans "Cancel" %}
+      </a>
+      <button type="submit" id="save-settings-btn"
+              class="bg-emerald-700 hover:bg-emerald-800 text-white font-black px-6 py-3 rounded-xl shadow-md text-xs uppercase tracking-wider active:scale-95 transition">
+        {% trans "Save Changes" %}
+      </button>
+    </div>
+
+  </form>
+
+</div>
+{% endblock %}

@@ -43,6 +43,7 @@
       <span class="text-[11px] text-slate-400">Naka-ayos ayon sa pinakamataas</span>
     </div>
     
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
     {% for item in customer_list %}
     {% with cust=item.obj pct=item.credit_pct %}
     <div class="bg-white border rounded-xl p-3.5 shadow-sm transition-all {% if cust.debt_balance > cust.credit_limit %}border-rose-400 bg-rose-50/30{% elif pct >= 80 %}border-amber-300 bg-amber-50/20{% else %}border-slate-200{% endif %}">
@@ -99,12 +100,13 @@
     </div>
     {% endwith %}
     {% empty %}
-    <div class="p-8 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-xl">
+    <div class="col-span-full p-8 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-xl">
       <i data-lucide="users" class="w-8 h-8 mx-auto text-slate-300 mb-2"></i>
       <p class="text-sm font-semibold text-slate-600">Walang nahanap na suki.</p>
       <a href="/utang/" class="inline-block mt-3 bg-slate-800 text-white text-xs font-bold px-3 py-1.5 rounded-lg">Ipakita Lahat</a>
     </div>
     {% endfor %}
+    </div>
   </div>
 
 </div>

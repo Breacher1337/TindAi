@@ -10,6 +10,7 @@ Executes real network requests using the configured GEMINI_API_KEY, verifying:
 
 import base64
 import io
+import os
 from decimal import Decimal
 import pytest
 from django.conf import settings
@@ -90,6 +91,10 @@ def generate_test_image_base64(
     return raw_b64
 
 
+LIVE_KEY_PRESENT = bool(getattr(settings, "GEMINI_API_KEY", None) or os.environ.get("GEMINI_API_KEY"))
+
+
+@pytest.mark.skipif(not LIVE_KEY_PRESENT, reason="Requires configured GEMINI_API_KEY for live network requests")
 @pytest.mark.django_db
 class TestGeminiLiveNetwork:
     """Live network test suite executing real Google Gemini requests."""
